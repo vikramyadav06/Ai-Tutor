@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "delete.v1",
+  "title": "Request to delete an adult learner's data (signed with their key)",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "delete.v1"
+    },
+    "learner_id": {
+      "type": "string",
+      "pattern": "^lrn-[a-hjkmnp-z2-9]{8}$"
+    },
+    "requested_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    }
+  },
+  "required": [
+    "schema",
+    "learner_id",
+    "requested_at"
+  ]
+}
