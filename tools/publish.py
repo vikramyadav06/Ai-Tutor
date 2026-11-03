@@ -92,41 +92,74 @@ def ensure_fork(root, upstream_repo, gh=None):
     return True
 
 
-def remote_has_branch(root):
-    out = git(root, "ls-remote", "--heads", "origin", BRANCH, timeout=60, check=False)
+def remote_has_branch(root, branch=BRANCH):
+    out = git(root, "ls-remote", "--heads", "origin", branch, timeout=60, check=False)
     return out.returncode == 0 and bool(out.stdout.strip())
 
 
-def ensure_worktree(root):
-    """A worktree on the orphan tutor-data branch at .tutor/worktree."""
-    wt = learner.tutor_dir(root) / "worktree"
+def ensure_worktree(root, branch=BRANCH, name="worktree"):
+    """A worktree on an orphan branch at .tutor/<name>, never the learner's own checkout."""
+    wt = learner.tutor_dir(root) / name
     if wt.exists() and (wt / ".git").exists():
         head = git(wt, "symbolic-ref", "--short", "HEAD", check=False).stdout.strip()
-        if head == BRANCH:
+        if head == branch:
             return wt
         git(root, "worktree", "remove", "--force", str(wt), check=False)
     if wt.exists():
         shutil.rmtree(wt)
     git(root, "worktree", "prune", check=False)
-    has_local = git(root, "rev-parse", "--verify", "--quiet", f"refs/heads/{BRANCH}", check=False).returncode == 0
-    if not has_local and remote_has_branch(root):
-        git(root, "fetch", "--no-tags", "origin", f"+refs/heads/{BRANCH}:refs/heads/{BRANCH}")
+    has_local = git(root, "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}", check=False).returncode == 0
+    if not has_local and remote_has_branch(root, branch):
+        git(root, "fetch", "--no-tags", "origin", f"+refs/heads/{branch}:refs/heads/{branch}")
         has_local = True
     if has_local:
-        git(root, "worktree", "add", "--quiet", str(wt), BRANCH)
+        git(root, "worktree", "add", "--quiet", str(wt), branch)
     else:
         git(root, "worktree", "add", "--quiet", "--detach", str(wt))
-        git(wt, "checkout", "--quiet", "--orphan", BRANCH)
+        git(wt, "checkout", "--quiet", "--orphan", branch)
         git(wt, "rm", "-r", "--quiet", "--cached", "--ignore-unmatch", ".")
         git(wt, "clean", "-fdxq")
     return wt
 
 
-def check_branch_contents(wt):
+def check_branch_contents(wt, branch=BRANCH, path_re=DATA_PATH):
     files = git(wt, "ls-files").stdout.split()
-    bad = [f for f in files if not DATA_PATH.match(f)]
+    bad = [f for f in files if not path_re.match(f)]
     if bad:
-        raise PublishError(f"{BRANCH} would contain non-data files: {bad[:3]}")
+        raise PublishError(f"{branch} would contain unexpected files: {bad[:3]}")
+
+
+def push_orphan(root, files, branch, name, path_re, message, day=None):
+    """Add (published path, source file) pairs to an orphan branch and push only that branch,
+    with a neutral identity and day-rounded dates. Used for tutor-data and tutor-sync."""
+    for rel, _ in files:
+        if not path_re.match(rel):
+            raise PublishError(f"refusing to add {rel!r} to {branch}")
+    wt = ensure_worktree(root, branch, name)
+    for rel, src in files:
+        dest = wt / rel
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(src, dest)
+        git(wt, "add", "--", rel)
+    check_branch_contents(wt, branch, path_re)
+    day = day or dt.datetime.now(dt.timezone.utc).date().isoformat()
+    stamp = f"{day}T00:00:00Z"
+    env = {**NEUTRAL, "GIT_AUTHOR_DATE": stamp, "GIT_COMMITTER_DATE": stamp}
+    if git(wt, "diff", "--cached", "--quiet", check=False).returncode != 0:
+        git(wt, "-c", "commit.gpgsign=false", "commit", "--quiet", "--no-verify", "-m", message, env=env)
+
+    refspec = f"refs/heads/{branch}:refs/heads/{branch}"  # this branch and nothing else
+    pushed = git(wt, "push", "--quiet", "--no-verify", "origin", refspec, env=env, timeout=120, check=False)
+    if pushed.returncode != 0:
+        # the learner's other device pushed first: replay ours on top, once
+        git(wt, "fetch", "--no-tags", "origin", f"+refs/heads/{branch}:refs/remotes/origin/{branch}")
+        git(wt, "-c", "commit.gpgsign=false", "rebase", "--quiet", f"refs/remotes/origin/{branch}", env=env)
+        check_branch_contents(wt, branch, path_re)
+        git(wt, "push", "--quiet", "--no-verify", "origin", refspec, env=env, timeout=120)
+
+
+def upstream_repo(root):
+    return json.loads((Path(root) / "project.json").read_text(encoding="utf-8"))["upstream_repo"]
 
 
 def publish(root=None, config=None, gh=None, day=None):
@@ -142,31 +175,9 @@ def publish(root=None, config=None, gh=None, day=None):
         return "nothing"
     if not (root / ".git").exists():
         raise PublishError("not a git repository")
-    upstream = json.loads((root / "project.json").read_text(encoding="utf-8"))["upstream_repo"]
-    if not ensure_fork(root, upstream, gh):
+    if not ensure_fork(root, upstream_repo(root), gh):
         return "needs-gh-auth"
-
-    wt = ensure_worktree(root)
-    for rel, src in files:
-        dest = wt / rel
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(src, dest)
-        git(wt, "add", "--", rel)
-    check_branch_contents(wt)
-    day = day or dt.datetime.now(dt.timezone.utc).date().isoformat()
-    stamp = f"{day}T00:00:00Z"
-    env = {**NEUTRAL, "GIT_AUTHOR_DATE": stamp, "GIT_COMMITTER_DATE": stamp}
-    if git(wt, "diff", "--cached", "--quiet", check=False).returncode != 0:
-        git(wt, "-c", "commit.gpgsign=false", "commit", "--quiet", "--no-verify", "-m", "data", env=env)
-
-    refspec = f"refs/heads/{BRANCH}:refs/heads/{BRANCH}"  # this branch and nothing else
-    pushed = git(wt, "push", "--quiet", "--no-verify", "origin", refspec, env=env, timeout=120, check=False)
-    if pushed.returncode != 0:
-        # someone (the learner's other device) pushed first: replay ours on top, once
-        git(wt, "fetch", "--no-tags", "origin", f"+refs/heads/{BRANCH}:refs/remotes/origin/{BRANCH}")
-        git(wt, "-c", "commit.gpgsign=false", "rebase", "--quiet", f"refs/remotes/origin/{BRANCH}", env=env)
-        check_branch_contents(wt)
-        git(wt, "push", "--quiet", "--no-verify", "origin", refspec, env=env, timeout=120)
+    push_orphan(root, files, BRANCH, "worktree", DATA_PATH, "data", day)
     for _, src in files:
         src.unlink()
     return f"pushed:{len(files)}"

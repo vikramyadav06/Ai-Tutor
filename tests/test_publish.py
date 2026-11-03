@@ -163,7 +163,7 @@ def test_publish_source_never_pushes_another_branch():
     source = (REPO / "tools" / "publish.py").read_text()
     pushes = re.findall(r'git\(wt, "push"[^)]*\)', source)
     assert pushes and all("refspec" in p for p in pushes)
-    assert 'refspec = f"refs/heads/{BRANCH}:refs/heads/{BRANCH}"' in source
+    assert 'refspec = f"refs/heads/{branch}:refs/heads/{branch}"' in source
 
 
 def test_end_to_end_session_is_silent_and_shared(tutor_root, fork, tmp_path):
@@ -204,4 +204,4 @@ def test_end_to_end_session_is_silent_and_shared(tutor_root, fork, tmp_path):
     assert record["schema"] == "session.adult.v1" and record["subject"] == "python"
     # the learner's next session is told to show the learner code once
     nxt = run(str(REPO / "tools" / "tutor.py"), "hook", "session-start", stdin='{"source": "startup"}')
-    assert "show the learner code" in json.loads(nxt.stdout)["hookSpecificOutput"]["additionalContext"]
+    assert "the code moment" in json.loads(nxt.stdout)["hookSpecificOutput"]["additionalContext"]
