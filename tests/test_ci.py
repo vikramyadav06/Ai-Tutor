@@ -32,3 +32,27 @@ def test_actions_are_pinned_to_full_shas():
 def test_dependabot_watches_actions():
     text = (REPO / ".github" / "dependabot.yml").read_text(encoding="utf-8")
     assert "package-ecosystem: github-actions" in text
+
+
+def test_codeowners_cover_what_runs_on_learners_machines():
+    text = (REPO / ".github" / "CODEOWNERS").read_text(encoding="utf-8")
+    rules = {line.split()[0]: line.split()[1:] for line in text.splitlines() if line.strip() and not line.startswith("#")}
+    for path in ("/tools/", "/.claude/", "/AGENTS.md", "/CLAUDE.md", "/project.json", "/requirements-*.txt",
+                 "/core/schemas/", "/docs/allowed_signers", "/.github/"):
+        assert rules.get(path) == ["@vikramwebgarh"], path
+
+
+def test_allowed_signers_ships_and_holds_only_public_keys():
+    text = (REPO / "docs" / "allowed_signers").read_text(encoding="utf-8")
+    assert "PRIVATE KEY" not in text
+    for line in text.splitlines():
+        if line.strip() and not line.startswith("#"):
+            assert 'namespaces="git"' in line and line.split()[-2].startswith("ssh-")
+
+
+def test_owner_checklist_covers_release_security():
+    text = (REPO / "docs" / "OWNER_CHECKLIST.md").read_text(encoding="utf-8")
+    for needle in ("require review from Code Owners", "passkey or a hardware security key",
+                   "used **only** for signing releases", "git tag -s", "git verify-tag",
+                   "two consecutive signed releases", "Tags → Add tag ruleset"):
+        assert needle in text, needle
