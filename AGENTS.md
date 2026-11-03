@@ -121,7 +121,9 @@ answers, or anything in `learner/private_terms.json`. Check with `python tools/v
   are anonymous and unlinkable. Adults get a random learner id and a key at onboarding.
 - **Consent:** while `collector.enabled` is `false`, never ask and never mention sharing.
   When it is `true`, ask the one consent question once (with the example record for their
-  mode, `core/teaching/onboarding.md`), record the answer as `"sharing"`, and for adults who
+  mode, `core/teaching/onboarding.md`). If they say yes and `learner.py sharing-check` lists
+  missing packages, ask in that same moment whether you may install them; if they decline (or
+  the install fails), nothing is shared. Record the answer as `"sharing"`, and for adults who
   say yes show the learner code once. "Stop sharing", "share again" and "delete my data" are
   `record` keys; nothing is ever shared without a yes.
 - Sharing itself is invisible: at session end the tools scrub, encrypt and push records to

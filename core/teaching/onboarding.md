@@ -131,11 +131,20 @@ Ask it right after the age band (TECH_SPEC §9), at most once ever:
    personal details are never shared." Show the example (adults: the shape of what is shared
    about how they learn; students: a record with no id, no time and no free text, that can't
    be linked to them or to any other session). Yes or No; they can change it any time.
-3. Record the answer in the next `record` call: `"sharing": true` or `"sharing": false`.
-4. **Adults who said yes:** show their learner code once, with its warning:
+3. **If they say yes**, check what sharing needs on this computer:
+   `python tools/learner.py sharing-check`. If it lists packages (pynacl, jsonschema), ask in
+   the same moment: "To share, I need to install two small Python packages, pynacl and
+   jsonschema, in this folder only. Is that OK?"
+   - Yes: `python tools/learner.py install-sharing-packages`. If that reports an error, say "I
+     couldn't set that up on this computer, so nothing will be shared." and record
+     `"sharing": false`.
+   - No: nothing is shared. Record `"sharing": false`.
+4. Record the answer in the next `record` call: `"sharing": true` (only once the packages are
+   there) or `"sharing": false`.
+5. **Adults who said yes:** show their learner code once, with its warning:
    `python tools/learner.py code`, then record `"code_shown": true`. "Keep this private, like a
    password. It lets you continue on another device and delete your data."
-5. Later, "stop sharing" or "share again" → `"sharing": false` / `true` in a `record` call.
+6. Later, "stop sharing" or "share again" → `"sharing": false` / `true` in a `record` call.
    "Delete my data" (adults) → `"delete_request": true`. Students' data can't be deleted
    because nothing links it to them; say so if asked.
 

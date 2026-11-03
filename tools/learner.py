@@ -359,8 +359,62 @@ def set_profile_flag(key, value, root=None):
     return profile
 
 
+SHARING_PACKAGES = {"nacl": "pynacl", "jsonschema": "jsonschema"}  # import name -> package
+
+
+def missing_packages():
+    """Packages sharing needs that aren't importable yet."""
+    import importlib.util
+    importlib.invalidate_caches()
+    return [pkg for mod, pkg in SHARING_PACKAGES.items() if importlib.util.find_spec(mod) is None]
+
+
+def install_packages(root=None):
+    """Install requirements-tutor.txt into .tutor/pylib. Only after the learner said yes to
+    installing them (TECH_SPEC §1 exception, owner decision 2026-11-03). Never touches the
+    system Python. Raises TutorError if no installer works."""
+    import importlib.util
+    import shutil
+    import subprocess
+    root = Path(root or ROOT)
+    target = tutor_dir(root) / "pylib"
+    target.mkdir(parents=True, exist_ok=True)
+    args = ["--target", str(target), "-r", str(root / "requirements-tutor.txt")]
+    if os.environ.get("TUTOR_PIP_COMMAND"):  # tests only: a stand-in installer
+        runners = [json.loads(os.environ["TUTOR_PIP_COMMAND"]) + args]
+    else:
+        runners = []
+        if importlib.util.find_spec("pip"):
+            runners.append([sys.executable, "-m", "pip", "install", "--quiet", "--disable-pip-version-check",
+                            "--no-input", *args])
+        if shutil.which("uv"):
+            runners.append(["uv", "pip", "install", "--quiet", "--python", sys.executable, *args])
+    errors = []
+    for command in runners:
+        try:
+            done = subprocess.run(command, capture_output=True, text=True, timeout=600)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            errors.append(str(exc))
+            continue
+        if done.returncode == 0:
+            if str(target) not in sys.path:
+                sys.path.insert(1, str(target))
+            if not missing_packages():
+                return target
+            errors.append("installed, but the packages still can't be imported")
+        else:
+            errors.append((done.stderr or done.stdout).strip()[-300:])
+    raise TutorError("could not install the sharing packages ("
+                     + ("; ".join(errors) if errors else "no pip or uv on this computer") + ")")
+
+
 def set_sharing(on, root=None):
-    """The learner's answer to the consent question (changeable any time)."""
+    """The learner's answer to the consent question (changeable any time). Sharing can't be
+    turned on until the packages it needs are installed."""
+    if on and missing_packages():
+        raise TutorError(f"sharing needs {', '.join(missing_packages())}: ask the learner, in the same "
+                         "consent moment, whether you may install them (python tools/learner.py "
+                         "install-sharing-packages); if they say no, sharing stays off")
     profile = set_profile_flag("sharing", bool(on), root)
     profile["sharing_asked"] = True
     profile["sharing_changed"] = today()
@@ -821,6 +875,8 @@ def main(argv=None):
     p.add_argument("state", choices=["on", "off"])
     sub.add_parser("mode", help="print adult or student")
     sub.add_parser("consent-sample", help="print the example record to show with the consent question")
+    sub.add_parser("sharing-check", help="print the packages sharing still needs (nothing if ready)")
+    sub.add_parser("install-sharing-packages", help="install them into .tutor/pylib (after the learner agrees)")
     sub.add_parser("show", help="summary for the start of a session")
     args = parser.parse_args(argv)
 
@@ -854,12 +910,19 @@ def main(argv=None):
             set_sharing(args.state == "on")
         elif args.cmd == "mode":
             print((read_json(learner_dir() / "profile.json") or {}).get("mode", "none"))
+        elif args.cmd == "sharing-check":
+            missing = missing_packages()
+            if missing:
+                print(" ".join(missing))
+        elif args.cmd == "install-sharing-packages":
+            install_packages()
         elif args.cmd == "consent-sample":
             import collect
             print(collect.consent_sample(read_json(learner_dir() / "profile.json", {}).get("mode", "adult")))
     except Exception as exc:
         tutorlog.log(ROOT, "learner", f"{args.cmd} failed: {exc}")
-        if args.cmd in ("onboard", "plan", "restore", "code", "consent-sample"):
+        if args.cmd in ("onboard", "plan", "restore", "code", "consent-sample", "install-sharing-packages",
+                        "sharing"):
             print(f"error: {exc}", file=sys.stderr)
             return 2
         if not isinstance(exc, TutorError):

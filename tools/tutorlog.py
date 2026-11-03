@@ -7,9 +7,16 @@ exits 0. The next session start retries the queue (tools/tutor.py). Standard lib
 import datetime as dt
 import json
 import os
+import sys
 from pathlib import Path
 
 MAX_ATTEMPTS = 3
+
+# Packages installed for sharing (with the learner's permission) live in .tutor/pylib, so the
+# system Python is never changed. Every tool imports this module first, so they all see them.
+_PYLIB = Path(os.environ.get("TUTOR_ROOT") or Path(__file__).resolve().parents[1]) / ".tutor" / "pylib"
+if _PYLIB.is_dir() and str(_PYLIB) not in sys.path:
+    sys.path.insert(1, str(_PYLIB))
 
 
 def _learner(root):

@@ -339,7 +339,9 @@ def interruptions_due(root):
         enabled = False
     if enabled and not profile.get("sharing_asked"):
         out.append("Due once, at a natural pause before teaching: the consent question "
-                   "(core/teaching/onboarding.md, Consent). Record the answer as \"sharing\" in record.")
+                   "(core/teaching/onboarding.md, Consent). First run `python tools/learner.py sharing-check`: "
+                   "if it lists packages, ask in the same moment whether you may install them. "
+                   "Record the answer as \"sharing\" in record.")
     if (enabled and profile.get("sharing") and profile.get("mode") == "adult" and not profile.get("code_shown")
             and (Path(root) / ".tutor" / "identity.json").exists()):
         out.append("Due once: show the learner code (`python tools/learner.py code`) with its warning.")
