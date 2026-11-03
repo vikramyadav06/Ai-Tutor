@@ -34,6 +34,27 @@ Ask age as a band only. Never ask for a birth date.
 
 For learners under 13, suggest a nickname.
 
+## Round 4: school and college subjects (syllabus and exam)
+
+For any school or college subject (level `primary` to `postgraduate`, or a learner preparing
+for a school, board or university exam), always ask:
+
+| Ask | Store as (subject answers) | Notes |
+| --- | --- | --- |
+| Which board or university? (CBSE, ICSE/CISCE, a state board, IB, Cambridge, a university) | `board` | Boards are not personal. A **university or college name is**: add it to `private_terms` and store only the board-like part (e.g. "B.Sc. Physics, semester 1") |
+| Which syllabus or textbook? (e.g. NCERT, Selina, the university's syllabus for this course) | `syllabus` | |
+| Which chapters or units are in your exam? (all, or the list) | `exam_units` | `"all"`, or the matching module ids |
+| When is the exam? | `exam_date` | YYYY-MM-DD |
+
+- The plan must cover **the whole required syllabus**: every chapter in their exam. If the
+  learner's chapter isn't a module in the catalog yet, add it to the catalog first (in the
+  syllabus's own order and wording) and only then build the plan.
+- If they don't know which chapters are in the exam, plan the whole syllabus (`"all"`) and
+  ask them to check with their teacher or syllabus.
+- If the subject's catalog follows a different board or syllabus than theirs, write a
+  catalog for theirs (e.g. `class-9-science-icse`); never teach one board's syllabus as
+  another's.
+
 ## Save the profile
 
 ```bash
@@ -63,12 +84,17 @@ answers and run it again without mentioning it to the learner.
 4. Build the plan:
 
 ```bash
-python tools/learner.py plan <subject-id> --answers '{"goal": "exam", "pace_weeks": 6}'
+python tools/learner.py plan class-9-science --answers '{"goal": "exam", "board": "CBSE",
+  "syllabus": "NCERT Science Class 9", "exam_units": "all", "exam_date": "2027-03-01"}'
 ```
 
 5. Tell them their path in plain words, from `learner/subjects/<subject-id>/plan.md`
-   ("8 short modules, about 3 weeks at an hour a day, starting with Matter") and ask if they
+   ("all 12 chapters, about 5 weeks at an hour a day, starting with Matter") and ask if they
    want to change anything. If so, re-run `plan` with new answers. Don't mention the file.
+6. **If the time doesn't fit** (the plan says "Not enough time"), say so plainly: how many
+   hours it needs, how many there are, and that you've put the highest-mark chapters first.
+   Offer the two fixes: more time per day, or dropping extras. Name the chapters that won't
+   fit at this pace. Never quietly drop syllabus chapters.
 
 A learner can study several subjects: run `plan` once per subject. Changing goals later:
 add them in the `model` part of a `record` call and re-run `plan`.

@@ -129,7 +129,7 @@ def test_full_session_is_silent(learner_repo, run_tool):
     # the next session starts with private context built from what was recorded
     nxt = hook(run_tool, root, "session-start", {"source": "startup"})
     text = json.loads(nxt.stdout)["hookSpecificOutput"]["additionalContext"]
-    assert "Pinky" in text and "next: Atoms and molecules" in text and "Never read it out" in text
+    assert "Pinky" in text and "next: Is matter around us pure?" in text and "Never read it out" in text
     assert (learner / "agent.txt").read_text().strip() == "claude-code"
 
 

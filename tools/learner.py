@@ -50,7 +50,10 @@ MODEL_LISTS = {
     "what_works": "text",
 }
 MODEL_VALUES = {"journey_stage": JOURNEY_STAGES, "pace": PACES}
-SUBJECT_EXTRA_KEYS = {"pace_weeks", "hours_per_day", "start_date"}
+SUBJECT_EXTRA_KEYS = {"pace_weeks", "hours_per_day", "start_date",
+                      # school and college subjects (core/teaching/onboarding.md, round 4)
+                      "board", "syllabus", "exam_units", "exam_date"}
+ACADEMIC_LEVELS = {"primary", "middle", "secondary", "college", "postgraduate"}
 
 
 class TutorError(Exception):
@@ -291,11 +294,31 @@ def check_subject_answers(catalog, answers):
         clean["pace_weeks"] = pw
     if "hours_per_day" in answers:
         clean["hours_per_day"] = check_hours(answers["hours_per_day"])
-    if "start_date" in answers:
-        try:
-            clean["start_date"] = dt.date.fromisoformat(answers["start_date"]).isoformat()
-        except (TypeError, ValueError):
-            raise TutorError("start_date must be YYYY-MM-DD")
+    for key in ("start_date", "exam_date"):
+        if key in answers:
+            try:
+                clean[key] = dt.date.fromisoformat(answers[key]).isoformat()
+            except (TypeError, ValueError):
+                raise TutorError(f"{key} must be YYYY-MM-DD")
+    for key, limit in (("board", 80), ("syllabus", 120)):
+        if key in answers:
+            value = answers[key]
+            if not isinstance(value, str) or not value.strip() or len(value) > limit:
+                raise TutorError(f"{key} must be text of at most {limit} characters")
+            clean[key] = " ".join(value.split())
+    if "exam_units" in answers:
+        units = answers["exam_units"]
+        module_ids = [m["id"] for m in catalog["modules"]]
+        if units == "all":
+            clean["exam_units"] = "all"
+        elif isinstance(units, list) and units:
+            missing = [u for u in units if u not in module_ids]
+            if missing:
+                raise TutorError(f"exam_units {missing} are not modules of {catalog['subject']}; add those "
+                                 f"chapters to the catalog first (module ids: {module_ids})")
+            clean["exam_units"] = list(dict.fromkeys(units))
+        else:
+            raise TutorError('exam_units must be "all" or a list of module ids')
     return clean
 
 
@@ -329,9 +352,15 @@ def build_plan(catalog, answers):
             add(req, "Needed first")
         reasons[mid] = reason
 
-    for m in catalog["modules"]:
-        if m["kind"] == "core":
-            add(m["id"], "Core")
+    exam_units = answers.get("exam_units")
+    if isinstance(exam_units, list):
+        # the learner's exam decides the required syllabus; other core modules are left out
+        for mid in exam_units:
+            add(mid, "In your exam")
+    else:
+        for m in catalog["modules"]:
+            if m["kind"] == "core":
+                add(m["id"], "Core")
     for area in answers.get("focus", []):
         for mid in areas.get(area, {}).get("modules", []):
             add(mid, "Your choice")
@@ -358,9 +387,40 @@ def build_plan(catalog, answers):
         if mid in shorten:
             cut, note = shorten[mid]
             hours = max(1, hours - cut)
-        rows.append({"id": mid, "title": modules[mid]["title"], "hours": hours,
-                     "reason": reasons[mid], "note": note})
+        row = {"id": mid, "title": modules[mid]["title"], "hours": hours,
+               "reason": reasons[mid], "note": note}
+        if "weightage" in modules[mid]:
+            row["weightage"] = modules[mid]["weightage"]
+        rows.append(row)
     return rows
+
+
+def prioritise(rows, catalog):
+    """Reorder for a deadline that is too close: syllabus modules with the highest exam
+    weightage first, extras after them, schedule_last at the end. Requirements still come
+    before the modules that need them."""
+    requires = {m["id"]: m.get("requires", []) for m in catalog["modules"]}
+    last = set(catalog.get("schedule_last", []))
+    order = {r["id"]: i for i, r in enumerate(rows)}
+    required_reasons = {"Core", "In your exam", "Needed first"}
+
+    def key(row):
+        extra = row["reason"] not in required_reasons
+        return (row["id"] in last, extra, -row.get("weightage", 0), order[row["id"]])
+
+    placed, out = set(), []
+    pending = sorted(rows, key=key)
+    while pending:
+        for row in pending:
+            if all(req in placed or req not in order for req in requires.get(row["id"], [])):
+                out.append(row)
+                placed.add(row["id"])
+                pending.remove(row)
+                break
+        else:  # a requirement cycle; keep the rest as they are
+            out += pending
+            break
+    return out
 
 
 def schedule(rows, start, hours_per_day):
@@ -393,6 +453,21 @@ def plan_subject(subject, answers=None, root=None):
     hours_per_day = answers.get("hours_per_day") or profile.get("hours_per_day") or 1
     rows = build_plan(catalog, answers)
     total_hours, total_days = schedule(rows, start, hours_per_day)
+    deadline, available, fits, prioritised = None, None, True, False
+    if answers.get("exam_date"):
+        deadline = answers["exam_date"]
+    elif answers.get("pace_weeks"):
+        deadline = (dt.date.fromisoformat(start) + dt.timedelta(days=7 * answers["pace_weeks"])).isoformat()
+    if deadline:
+        days = max(0, (dt.date.fromisoformat(deadline) - dt.date.fromisoformat(start)).days)
+        available = days * hours_per_day
+        fits = total_hours <= available
+        if not fits and any("weightage" in r for r in rows):
+            rows = prioritise(rows, catalog)
+            schedule(rows, start, hours_per_day)
+            prioritised = True
+        for row in rows:
+            row["before_deadline"] = row["target"] < deadline
     lesson_root = Path(root or ROOT) / "core" / "subjects" / subject
     for row in rows:
         row["status"] = statuses.get(row["id"], "not-started")
@@ -404,8 +479,15 @@ def plan_subject(subject, answers=None, root=None):
         "start_date": start,
         "hours_per_day": hours_per_day,
         "pace_weeks": answers.get("pace_weeks", 0),
+        "board": answers.get("board"),
+        "syllabus": answers.get("syllabus"),
+        "syllabus_source": catalog.get("syllabus"),
         "total_hours": total_hours,
         "total_days": total_days,
+        "deadline": deadline,
+        "available_hours": available,
+        "fits": fits,
+        "prioritised": prioritised,
         "modules": rows,
         "updated": today(),
     }
@@ -436,14 +518,24 @@ def render_plan(plan, catalog, answers):
     lines += ["## Your path", "",
               f"{len(plan['modules'])} modules, about {plan['total_hours']:g} hours at "
               f"{plan['hours_per_day']:g} h/day: **{plan['total_days']} days**, target finish **{finish}**."]
-    pace = plan.get("pace_weeks") or 0
-    if pace and plan["total_days"] > pace * 7:
-        lines.append(f"\n> To finish in {pace} weeks you'd need about "
-                     f"{plan['total_hours'] / (pace * 7):.1f} h/day, or a shorter plan.")
-    lines += ["", "| # | Module | Why | Hours | Target | Status |", "| --- | --- | --- | --- | --- | --- |"]
+    if plan.get("board") or plan.get("syllabus"):
+        lines.append(f"\nSyllabus: {' / '.join(x for x in (plan.get('board'), plan.get('syllabus')) if x)}.")
+    if plan.get("deadline") and not plan.get("fits"):
+        short = plan["total_hours"] - plan["available_hours"]
+        lines.append(f"\n> **Not enough time.** This needs about {plan['total_hours']:g} hours; until "
+                     f"{plan['deadline']} there are about {plan['available_hours']:g} ({short:g} short). "
+                     + ("Ordered by exam weightage: the highest-mark chapters come first. "
+                        if plan.get("prioritised") else "")
+                     + "More time per day, or fewer extras, would cover everything.")
+        late = [r["title"] for r in plan["modules"] if not r.get("before_deadline", True)]
+        if late:
+            lines.append(f"> Won't fit before the deadline at this pace: {', '.join(late)}.")
+    lines += ["", "| # | Module | Why | Marks | Hours | Target | Status |",
+              "| --- | --- | --- | --- | --- | --- | --- |"]
     for i, r in enumerate(plan["modules"], 1):
         why = r["reason"] + (f" ({r['note']})" if r["note"] else "")
-        lines.append(f"| {i} | {r['title']} | {why} | {r['hours']:g} | {r['target']} | {r['status']} |")
+        marks = f"{r['weightage']:g}" if "weightage" in r else "-"
+        lines.append(f"| {i} | {r['title']} | {why} | {marks} | {r['hours']:g} | {r['target']} | {r['status']} |")
     return "\n".join(lines) + "\n"
 
 
@@ -503,6 +595,15 @@ def append_notes(subject, module, batch, extra=None, root=None):
     return out
 
 
+def lesson_state(subject, module, root=None):
+    lesson = read_json(Path(root or ROOT) / "core" / "subjects" / subject / module / "lesson.json")
+    if lesson is None:
+        return "not written yet"
+    written, planned = len(lesson.get("batches", [])), len(lesson.get("planned_batches") or [])
+    state = f"{written}/{planned} batches written" if planned and written < planned else "written"
+    return state + (", unreviewed" if lesson.get("status") != "reviewed" else "")
+
+
 def summary(root=None):
     profile = read_json(learner_dir(root) / "profile.json")
     if profile is None:
@@ -526,9 +627,17 @@ def summary(root=None):
             continue
         done = sum(r["status"] == "done" for r in plan["modules"])
         nxt = next_module(plan)
-        nxt_text = (f"next: {nxt['title']} ({nxt['id']}, {'written' if nxt['written'] else 'not written yet'})"
+        nxt_text = (f"next: {nxt['title']} ({nxt['id']}, {lesson_state(subject, nxt['id'], root)})"
                     if nxt else "all modules done")
         lines.append(f"Subject {subject}: {done}/{len(plan['modules'])} done, {nxt_text}")
+        if plan.get("board") or plan.get("syllabus"):
+            lines.append(f"  Syllabus: {' / '.join(x for x in (plan.get('board'), plan.get('syllabus')) if x)}"
+                         + (f", exam {plan['deadline']}" if plan.get("deadline") else ""))
+        if plan.get("deadline") and not plan.get("fits", True):
+            late = [r["id"] for r in plan["modules"] if not r.get("before_deadline", True)]
+            lines.append(f"  Plan does not fit before {plan['deadline']}: needs {plan['total_hours']:g} h, "
+                         f"{plan['available_hours']:g} h available; ordered by weightage. Won't fit: "
+                         f"{', '.join(late) or '-'}")
     return "\n".join(lines)
 
 

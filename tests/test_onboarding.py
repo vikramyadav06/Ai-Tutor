@@ -28,7 +28,8 @@ STUDENT = {
     "pace": "slow",
     "hours_per_day": 1,
 }
-STUDENT_SCIENCE = {"goal": "exam", "focus": ["physics"], "start_date": "2026-11-03"}
+STUDENT_SCIENCE = {"goal": "exam", "focus": ["physics"], "board": "CBSE", "syllabus": "NCERT Science Class 9",
+                   "exam_units": "all", "exam_date": "2027-03-01", "start_date": "2026-11-03"}
 
 
 def read(path):
@@ -89,18 +90,20 @@ def test_fourteen_year_old_learning_class_9_science(tutor_root, run_tool):
     assert profile["explain_language"] == "hi"
 
     plan = read(learner / "subjects" / "class-9-science" / "plan.json")
+    # the whole syllabus, in textbook order, then the chosen extra and revision last
     assert [(m["id"], m["reason"]) for m in plan["modules"]] == [
-        ("matter", "Core"),
-        ("atoms-and-molecules", "Core"),
-        ("the-cell", "Core"),
-        ("motion", "Core"),
-        ("force-and-laws", "Core"),
-        ("numericals-practice", "Your choice"),
-        ("exam-revision", "For your goal"),  # schedule_last
+        ("matter", "Core"), ("is-matter-pure", "Core"), ("atoms-and-molecules", "Core"),
+        ("structure-of-the-atom", "Core"), ("the-cell", "Core"), ("tissues", "Core"), ("motion", "Core"),
+        ("force-and-laws", "Core"), ("gravitation", "Core"), ("work-and-energy", "Core"), ("sound", "Core"),
+        ("food-resources", "Core"), ("numericals-practice", "Your choice"), ("exam-revision", "For your goal"),
     ]
-    assert plan["total_hours"] == 18 and plan["total_days"] == 18
+    assert plan["total_hours"] == 36 and plan["deadline"] == "2027-03-01"
+    assert plan["fits"] is True and plan["prioritised"] is False
+    assert plan["board"] == "CBSE" and plan["syllabus"] == "NCERT Science Class 9"
+    assert all(m["before_deadline"] for m in plan["modules"])
     matter = plan["modules"][0]
     assert matter["written"] is True and matter["lesson"] == "core/subjects/class-9-science/matter/lesson.json"
+    assert matter["weightage"] == 5
     assert plan["modules"][1]["written"] is False
 
     # student mode: no identity of any kind
@@ -185,3 +188,39 @@ def test_reonboarding_keeps_what_was_learned(tutor_root, learner_tool):
     model = read(tutor_root / "learner" / "model.json")
     assert model["pace"] == "fast"
     assert model["weak_areas"] == ["loops"] and model["what_works"] == ["short analogies"]
+
+
+def test_exam_units_and_a_close_exam_prioritise_by_weightage(tutor_root, learner_tool):
+    learner_tool.onboard(STUDENT, root=tutor_root)
+    units = ["matter", "atoms-and-molecules", "the-cell", "motion", "force-and-laws", "gravitation"]
+    plan = learner_tool.plan_subject("class-9-science", {
+        "goal": "exam", "focus": ["physics"], "board": "CBSE", "exam_units": units,
+        "exam_date": "2026-11-17", "start_date": "2026-11-03"}, root=tutor_root)
+    ids = [m["id"] for m in plan["modules"]]
+    # only the exam's chapters (plus extras); chapters outside the exam are left out
+    assert set(ids) == set(units) | {"numericals-practice", "exam-revision"}
+    assert "sound" not in ids and "tissues" not in ids
+    assert plan["fits"] is False and plan["prioritised"] is True
+    assert plan["total_hours"] == 21 and plan["available_hours"] == 14
+    # highest marks first, but a chapter's prerequisites still come before it
+    assert ids == ["the-cell", "matter", "atoms-and-molecules", "motion", "force-and-laws", "gravitation",
+                   "numericals-practice", "exam-revision"]
+    late = [m["id"] for m in plan["modules"] if not m["before_deadline"]]
+    assert late == ["gravitation", "numericals-practice", "exam-revision"]
+    text = (tutor_root / "learner" / "subjects" / "class-9-science" / "plan.md").read_text()
+    assert "Not enough time" in text and "Ordered by exam weightage" in text
+    assert "Won't fit before the deadline at this pace: Gravitation" in text
+
+
+def test_whole_syllabus_by_default(tutor_root, learner_tool):
+    learner_tool.onboard(STUDENT, root=tutor_root)
+    plan = learner_tool.plan_subject("class-9-science", {"goal": "understand"}, root=tutor_root)
+    assert len(plan["modules"]) == 12 and plan["deadline"] is None and plan["fits"] is True
+
+
+def test_unknown_exam_unit_is_rejected(tutor_root, learner_tool):
+    learner_tool.onboard(STUDENT, root=tutor_root)
+    with pytest.raises(learner_tool.TutorError, match="add those chapters to the catalog first"):
+        learner_tool.plan_subject("class-9-science", {"exam_units": ["matter", "chapter-99"]}, root=tutor_root)
+    with pytest.raises(learner_tool.TutorError, match="exam_date must be YYYY-MM-DD"):
+        learner_tool.plan_subject("class-9-science", {"exam_date": "March"}, root=tutor_root)
