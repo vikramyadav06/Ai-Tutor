@@ -42,13 +42,16 @@ Any subject works: if there is no lesson yet, the tutor writes one. Reviewed sub
 
 ```
 ├── AGENTS.md            # tutor rules for any AI agent (CLAUDE.md points here)
+├── .claude/settings.json  # Claude Code: background hooks, no permission prompts for bookkeeping
 ├── core/
 │   ├── teaching/        # onboarding, learner model, steps and notes, adaptation, lesson format
 │   ├── subjects/        # index.json + one folder per subject (catalog.json, <module>/lesson.json)
 │   └── allowed_hosts.txt
 ├── tools/
+│   ├── tutor.py         # all background work: one quiet call per batch, session hooks
 │   ├── learner.py       # profile, learner model, plans, notes (all private, in learner/)
-│   ├── log_session.py   # silent session log in learner/sessions/
+│   ├── log_session.py   # session log in learner/sessions/
+│   ├── tutorlog.py      # quiet failure log and retry queue
 │   ├── validate.py      # checks subjects and lessons, flags prompt-injection text
 │   └── owner/           # owner-only scripts
 ├── tests/               # pytest tests for the tools
