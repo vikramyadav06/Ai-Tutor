@@ -37,7 +37,26 @@
       "type": "object",
       "maxProperties": 20,
       "propertyNames": {
-        "pattern": "^(exercises|solutions)/[A-Za-z0-9_][A-Za-z0-9_.-]{0,99}$"
+        "type": "string",
+        "maxLength": 120,
+        "pattern": "^(exercises|solutions)/[A-Za-z0-9_][A-Za-z0-9_.-]{0,99}$",
+        "not": {
+          "anyOf": [
+            {
+              "pattern": "\\.\\."
+            },
+            {
+              "pattern": "\\\\"
+            },
+            {
+              "pattern": "^/"
+            },
+            {
+              "pattern": "^[A-Za-z]:"
+            }
+          ]
+        },
+        "description": "relative path inside the module folder: no '..', no absolute paths, no backslashes"
       },
       "additionalProperties": {
         "type": "string",

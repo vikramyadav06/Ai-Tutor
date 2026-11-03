@@ -33,7 +33,9 @@ import scrub  # noqa: E402
 import tutorlog  # noqa: E402
 
 ROOT = Path(os.environ.get("TUTOR_ROOT") or Path(__file__).resolve().parents[1])
-SCHEMAS = {name: f"{name}.json" for name in ("session.adult.v1", "session.student.v1", "lesson.v1", "delete.v1")}
+SCHEMAS = {name: f"{name}.json" for name in ("session.adult.v1", "session.student.v1", "lesson.v1", "delete.v1",
+                                             "subject.v1")}
+SAFE_FILE_KEY = re.compile(r"^(exercises|solutions)/[A-Za-z0-9_][A-Za-z0-9_.-]{0,99}$")
 MAX_LESSON_FILES_BYTES = 50 * 1024
 SAMPLE_SESSION = Path(__file__).resolve().parents[1] / "core" / "teaching" / "consent-sample-session.jsonl"
 
@@ -150,6 +152,23 @@ def _read_code(code_file, root):
     return path.read_text(encoding="utf-8", errors="replace")[:20000]
 
 
+def textbook_fields(subject, root=None):
+    """board (a category) and textbook_edition (a slug) for school and college subjects, from
+    the learner's subject answers. Never an institution's name."""
+    answers = learner.read_json(learner.subject_dir(subject, root) / "answers.json", {}) if subject else {}
+    out = {}
+    board = answers.get("board")
+    if board in learner.BOARDS:
+        out["board"] = board
+    book = " ".join(x for x in (answers.get("textbook"), answers.get("edition")) if x)
+    if book and board not in ("university", "other"):
+        cleaned, findings = scrub.scrub_text(book, private_terms(root))
+        slug = re.sub(r"[^a-z0-9]+", "-", cleaned.lower()).strip("-")[:63].strip("-")
+        if not findings and slug:
+            out["textbook_edition"] = slug
+    return out
+
+
 def build_session_record(events, profile, model, root=None, identity=None):
     """Turn a local session log into the record for the learner's mode."""
     root = Path(root or ROOT)
@@ -189,6 +208,7 @@ def build_session_record(events, profile, model, root=None, identity=None):
         "agent": start.get("agent", "other"),
         "explain_language": profile.get("explain_language", "en"),
         "subject": start.get("subject"),
+        **textbook_fields(start.get("subject"), root),
         "topics": _topics(events),
         "level": profile.get("level"),
         "age_band": profile.get("age_band"),
@@ -219,15 +239,44 @@ def build_lesson_record(lesson_path, root=None):
     files, total = {}, 0
     for sub in ("exercises", "solutions"):
         for f in sorted((lesson_path.parent / sub).glob("*")):
-            if f.is_file() and f.suffix in (".py", ".md", ".txt", ".json", ".csv"):
+            if f.is_file() and not f.is_symlink() and f.suffix in (".py", ".md", ".txt", ".json", ".csv"):
                 text = f.read_text(encoding="utf-8", errors="replace")
                 total += len(text.encode())
                 if total > MAX_LESSON_FILES_BYTES:
                     raise CollectError(f"lesson files over {MAX_LESSON_FILES_BYTES // 1024} KB")
                 files[f"{sub}/{f.name}"] = text
+    check_file_keys(files)
     return "lesson.v1", {"schema": "lesson.v1", "subject": lesson.get("subject"), "module": lesson.get("id"),
                          "level": lesson.get("level"), "explain_language": lesson.get("explain_language"),
                          "lesson": lesson, "files": files}
+
+
+def check_file_keys(files):
+    """Lesson file paths must stay inside the module folder (the schema checks this too)."""
+    for key in files:
+        if (not isinstance(key, str) or ".." in key or "\\" in key or key.startswith("/")
+                or re.match(r"^[A-Za-z]:", key) or not SAFE_FILE_KEY.match(key)):
+            raise CollectError(f"unsafe lesson file path {key!r}")
+
+
+def build_subject_record(catalog_path):
+    """A subject's chapter list from a learner's own book: no learner data, never signed."""
+    catalog = json.loads(Path(catalog_path).read_text(encoding="utf-8"))
+    syllabus = catalog.get("syllabus") or {}
+    if syllabus.get("provisional"):
+        raise CollectError("provisional catalog (not from the learner's book); not shared")
+    record = {"schema": "subject.v1", "subject": catalog.get("subject"), "title": catalog.get("title"),
+              "level": (catalog.get("levels") or [None])[0], "explain_language": catalog.get("explain_language", "en"),
+              "status": "unreviewed",
+              "chapters": [{k: m[k] for k in ("id", "title", "kind") if k in m}
+                           | ({"number": m["chapter"]} if "chapter" in m else {}) for m in catalog.get("modules", [])]}
+    if syllabus.get("board") in learner.BOARDS:
+        record["board"] = syllabus["board"]
+    if syllabus.get("board") not in ("university", "other"):
+        for key in ("textbook", "edition"):
+            if syllabus.get(key):
+                record[key] = syllabus[key]
+    return "subject.v1", record
 
 
 # ---------- signing, wrapping, encrypting ----------
@@ -288,15 +337,22 @@ def _git(root, *args):
     return subprocess.run(["git", *args], cwd=root, capture_output=True, text=True, timeout=30)
 
 
+def written_here(root, path):
+    """True if this file was written or changed on this machine by the tutor: untracked,
+    modified, or only ever committed by the tutor's own session-end commits."""
+    rel = Path(path).relative_to(root).as_posix()
+    status = _git(root, "status", "--porcelain", "--", rel).stdout.strip()
+    subjects = set(_git(root, "log", "--format=%s", "--", rel).stdout.split("\n")) - {""}
+    return bool(status) or bool(subjects and subjects <= {"tutor: save work and lessons"})
+
+
 def new_lessons(root=None):
-    """Lessons this tutor wrote or changed on this machine: untracked, modified, or only ever
-    committed by the tutor's own session-end commits. Complete ones only (all planned batches)."""
+    """Lessons written here (see written_here). Complete ones only (all planned batches)."""
     root = Path(root or ROOT)
     if not (root / ".git").exists():
         return []
     out = []
     for path in sorted((root / "core" / "subjects").glob("*/*/lesson.json")):
-        rel = path.relative_to(root).as_posix()
         try:
             lesson = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
@@ -304,11 +360,17 @@ def new_lessons(root=None):
         planned = lesson.get("planned_batches")
         if planned and len(lesson.get("batches", [])) < len(planned):
             continue  # still being written
-        status = _git(root, "status", "--porcelain", "--", rel).stdout.strip()
-        subjects = set(_git(root, "log", "--format=%s", "--", rel).stdout.split("\n")) - {""}
-        if status or (subjects and subjects <= {"tutor: save work and lessons"}):
+        if written_here(root, path):
             out.append(path)
     return out
+
+
+def new_catalogs(root=None):
+    """Subject catalogs written here from a learner's book (not provisional ones)."""
+    root = Path(root or ROOT)
+    if not (root / ".git").exists():
+        return []
+    return [p for p in sorted((root / "core" / "subjects").glob("*/catalog.json")) if written_here(root, p)]
 
 
 # ---------- the collector ----------
@@ -328,6 +390,10 @@ def collect_pending(root=None, config=None):
     identity = learner.read_json(learner.identity_path(root)) if adult else None
     model = learner.read_json(learner.learner_dir(root) / "model.json", {})
 
+    if config.get("student_collection"):
+        tutorlog.log(root, "collect", "WARNING: student_collection is true in project.json, but no linked "
+                                      "student schema exists; students' sessions stay anonymous and unlinked")
+
     for sid, events in finished_sessions(root):
         if sid in state["sessions"]:
             continue
@@ -339,9 +405,6 @@ def collect_pending(root=None, config=None):
         else:
             outcome = "sent"
         try:
-            if profile.get("mode") == "student" and config.get("student_collection"):
-                tutorlog.log(root, "collect", "student_collection is on but has no linked schema yet; "
-                                              "using the anonymous student record")
             name, record = build_session_record(events, profile, model, root, identity)
             if not record["steps"] and not record["teaching_moves"]:
                 state["sessions"][sid] = "empty"
@@ -357,6 +420,22 @@ def collect_pending(root=None, config=None):
             state["sessions"][sid] = "rejected"
 
     if sharing:
+        for path in new_catalogs(root):
+            rel = path.relative_to(root).as_posix()
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            if state["lessons"].get(rel) == digest:
+                continue
+            try:
+                name, record = build_subject_record(path)
+                record = prepare(record, name, root)
+                out = seal(record, None, config, root, write=write)  # never signed
+                if out:
+                    written.append(out)
+                state["lessons"][rel] = digest
+            except CollectError as exc:
+                tutorlog.log(root, "collect", f"subject {rel} not shared: {exc}")
+                if "provisional" not in str(exc):
+                    state["lessons"][rel] = digest  # a provisional one is shared once it's from the book
         for path in new_lessons(root):
             rel = path.relative_to(root).as_posix()
             digest = hashlib.sha256(path.read_bytes()).hexdigest()

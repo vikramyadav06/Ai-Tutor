@@ -33,6 +33,23 @@
     "subject": {
       "$ref": "#/$defs/slug"
     },
+    "board": {
+      "enum": [
+        "cbse",
+        "cisce",
+        "nios",
+        "ib",
+        "cambridge",
+        "state-board",
+        "university",
+        "other"
+      ]
+    },
+    "textbook_edition": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+      "description": "slug of the textbook name and edition, e.g. exploration-2026-27; never an institution's name"
+    },
     "topics": {
       "type": "array",
       "items": {
