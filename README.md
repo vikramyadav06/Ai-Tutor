@@ -1,110 +1,71 @@
-# Learn Playwright with Python – Personal, Hands-on Course
+# AI Tutor
 
-A free, self-paced course for web test automation with **Playwright + Python + pytest**.
-It adapts to you: answer a few questions about your role, experience, goal and time,
-and you get a personal plan with only the modules you need.
+A personal tutor that teaches anyone anything: school subjects, college, research,
+programming. Open this folder in an AI agent (Claude Code, Codex, Cursor) and say **start**.
 
-Lessons come as **one small task at a time**: read one idea, answer a quick check, fill in
-a line of code, put steps in order. After every short batch you get **revision notes**,
-collected on a Notes page so you can recall anything later.
+The tutor asks a few questions (what you want to learn and why, your level, how you like to
+learn, your language), builds a plan, and then teaches **one small step at a time**: one
+idea, a quick check, feedback, the next step. After every short batch you get **revision
+notes**, saved for later. It adapts as it goes: slower where you struggle, faster where you
+don't, using the kinds of explanation that work for you.
 
-## Three ways to learn (same content in all three)
+Everything it learns about you stays in `learner/` on your computer. Nothing is shared.
 
-**1. In your browser, nothing to install**
-Open the course website: `https://<your-username>.github.io/<repo-name>/`
-(or download the repo and double-click `index.html`). You answer the onboarding questions,
-get your plan and learn step by step. Progress is saved in your browser; you can back it up
-and restore it on another device.
+## Start
 
-**2. With an AI tutor (optional)**
-Open this repo in an AI coding agent such as [Claude Code](https://claude.com/claude-code)
-and say **start**. It asks the same onboarding questions, teaches the same lessons one step
-at a time in your preferred language, reviews your code and keeps your progress file.
-Already learning on the website? Its "AI tutor & backup" page gives you a message to paste
-into the agent so it continues where you are.
-
-**3. On your own computer, without AI**
-```bash
-python start.py      # asks about you, builds learner/my-plan.md and learner/progress.md
-```
-Then open `index.html`, or read each module's `lesson.json` directly.
-
-### For the hands-on exercises (any of the three ways)
-Some steps ask you to write and run real tests. For those you need Python on your computer:
 ```bash
 git clone <this-repo-url>
 cd <repo-folder>
+```
+
+Open the folder in your AI agent and say **start**. You need Python 3.10 or newer.
+
+Some subjects have hands-on exercises with their own packages. The tutor tells you when; for
+example, the Playwright subject needs:
+
+```bash
 python -m venv venv
 # Windows: venv\Scripts\activate    macOS/Linux: source venv/bin/activate
-pip install -r requirements.txt
+pip install -r core/subjects/playwright-python/requirements.txt
 playwright install --with-deps
 ```
-Write your code in `my-work/<module-id>/`, then run `pytest my-work/<module-id> -v`.
-Learning on a phone? Skip those steps for now; they stay on your plan.
 
-## Course modules
-| Module | Id | Type | Folder | Status |
-| --- | --- | --- | --- | --- |
-| Python essentials for testers | `python-basics` | optional | `course/python-basics` | Coming soon |
-| Setup | `setup` | core | [`course/setup`](course/setup) | Draft |
-| Basics & architecture | `basics` | core | [`course/basics`](course/basics) | Draft |
-| Locators | `locators` | core | `course/locators` | Coming soon |
-| Actions & tricky UI | `actions` | core | `course/actions` | Coming soon |
-| Assertions & waiting | `assertions` | core | `course/assertions` | Coming soon |
-| pytest-playwright deep dive | `pytest-playwright` | core | `course/pytest-playwright` | Coming soon |
-| Migrating from Selenium to Playwright | `selenium-migration` | optional | `course/selenium-migration` | Coming soon |
-| Page Object Model | `pom` | topic | `course/pom` | Coming soon |
-| Auth, sessions & debugging | `auth-debugging` | topic | `course/auth-debugging` | Coming soon |
-| API testing | `api` | topic | `course/api` | Coming soon |
-| Network control & mocking | `network` | topic | `course/network` | Coming soon |
-| Visual & accessibility testing | `visual-a11y` | topic | `course/visual-a11y` | Coming soon |
-| Cross-browser testing | `cross-browser` | topic | `course/cross-browser` | Coming soon |
-| Cross-device (mobile emulation) | `cross-device` | topic | `course/cross-device` | Coming soon |
-| Parallel runs & Allure reports | `parallel-allure` | topic | `course/parallel-allure` | Coming soon |
-| CI with GitHub Actions | `ci` | topic | `course/ci` | Coming soon |
-| Portfolio project | `portfolio` | optional | `course/portfolio` | Coming soon |
-| Interview preparation | `interview-prep` | optional | `course/interview-prep` | Coming soon |
+## Subjects
 
-**Draft** modules are written but not yet verified end to end by a learner. **Core** modules are in every plan. **Topic** and **optional** modules are added based on
-your goal and the topics you pick. The full outline is in [CURRICULUM.md](CURRICULUM.md).
+Any subject works: if there is no lesson yet, the tutor writes one. Reviewed subjects:
+
+| Subject | Folder |
+| --- | --- |
+| Playwright with Python (web test automation) | [`core/subjects/playwright-python`](core/subjects/playwright-python) |
 
 ## Repository layout
+
 ```
-├── index.html           # the web app (works on GitHub Pages or opened from disk)
-├── start.py             # onboarding in the terminal: builds your plan (no install needed)
-├── course/
-│   ├── catalog.json     # modules and plan rules, shared by the web app, start.py and AI tutors
-│   ├── FORMAT.md        # how lessons are written
-│   ├── bundle.js        # offline copy of all lessons (generated by tools/build_bundle.py)
-│   ├── _TEMPLATE/       # starting point for a new module
-│   └── <module-id>/     # lesson.json, exercises/, solutions/
+├── AGENTS.md            # tutor rules for any AI agent (CLAUDE.md points here)
+├── core/
+│   ├── teaching/        # onboarding, learner model, steps and notes, adaptation, lesson format
+│   ├── subjects/        # index.json + one folder per subject (catalog.json, <module>/lesson.json)
+│   └── allowed_hosts.txt
+├── tools/
+│   ├── learner.py       # profile, learner model, plans, notes (all private, in learner/)
+│   ├── log_session.py   # silent session log in learner/sessions/
+│   ├── validate.py      # checks subjects and lessons, flags prompt-injection text
+│   └── owner/           # owner-only scripts
+├── tests/               # pytest tests for the tools
 ├── my-work/             # your exercise code
-├── learner/             # your profile, plan and progress (private, git-ignored)
-├── tools/               # build_bundle.py and content helpers
-├── CURRICULUM.md        # full course outline
-├── requirements.txt
-├── project.json         # main course repo address (where pull requests go)
-├── MAINTAINING.md       # how contributions are reviewed and merged
-├── .github/             # automatic checks on pull requests, PR template
-├── AGENTS.md            # optional: instructions for any AI tutor
-└── CLAUDE.md            # optional: points Claude Code to AGENTS.md
+├── learner/             # your profile, plans, notes, sessions (private, git-ignored)
+├── archive/web-app/     # the old browser version, kept as the seed for the website
+├── project.json         # public settings (data collection is off)
+└── docs/                # plan and technical spec for building the platform
 ```
 
-## How the course grows
-Every module here is written once, by a learner's AI tutor, then reviewed and merged.
+## For developers
 
-1. A learner using an AI tutor reaches a module that isn't written yet.
-2. The tutor writes it, teaches it, and checks the solutions pass.
-3. If the learner agreed during onboarding, the tutor quietly opens a **pull request** with
-   only the course files (never their profile, progress or code).
-4. Automatic checks run on GitHub; the maintainer (or their AI agent) reviews and merges.
-5. The module goes live on the website, ready-made for everyone, with no AI needed.
+```bash
+pip install -r requirements-dev.txt
+pytest
+python tools/validate.py
+```
 
-Maintainers: see [MAINTAINING.md](MAINTAINING.md) for setup and the review checklist.
-
-## Practice sites used
-- [saucedemo.com](https://www.saucedemo.com) – UI
-- [the-internet.herokuapp.com](https://the-internet.herokuapp.com) – tricky UI cases
-- [restful-booker](https://restful-booker.herokuapp.com/apidoc/index.html) – API
-
-These are public demo sites run by third parties; if one is down, try again later.
+The build plan is in [docs/PLAN.md](docs/PLAN.md) and the exact choices in
+[docs/TECH_SPEC.md](docs/TECH_SPEC.md). Decisions not covered there: [docs/DECISIONS.md](docs/DECISIONS.md).
