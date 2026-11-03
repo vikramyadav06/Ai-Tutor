@@ -25,6 +25,30 @@ def git(cwd, *args):
     return subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, check=True).stdout.strip()
 
 
+def make_key(folder, name):
+    """A throwaway SSH signing key, made inside the test (never the owner's real key)."""
+    subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", name, "-f", str(folder / name)],
+                   check=True)
+    return folder / name
+
+
+def signers_line(key, principal="owner"):
+    kind, data = (key.parent / (key.name + ".pub")).read_text().split()[:2]
+    return f'{principal} namespaces="git" {kind} {data}\n'
+
+
+def tag(cwd, name, key=None):
+    """Cut a release: signed with key, or an unsigned annotated tag if key is None."""
+    base = ["git", "-c", "user.name=Owner", "-c", "user.email=owner@invalid"]
+    if key is None:
+        subprocess.run(base + ["tag", "-a", name, "-m", f"Release {name}"], cwd=cwd, check=True)
+    else:
+        subprocess.run(base + ["-c", "gpg.format=ssh", "-c", f"user.signingkey={key}",
+                               "tag", "-s", name, "-m", f"Release {name}"], cwd=cwd, check=True,
+                       capture_output=True)
+    git(cwd, "push", "-q", "origin", name)
+
+
 def commit(cwd, message):
     git(cwd, "add", "-A")
     git(cwd, "-c", "user.name=Owner", "-c", "user.email=owner@invalid", "commit", "-q", "-m", message)
@@ -34,6 +58,11 @@ def commit(cwd, message):
 def course(tutor_root, tmp_path, monkeypatch):
     """(owner checkout, upstream bare repo, learner clone that has onboarded)."""
     owner = tutor_root
+    keys = tmp_path / "keys"
+    keys.mkdir()
+    owner_key = make_key(keys, "owner")
+    (owner / "docs").mkdir()
+    (owner / "docs" / "allowed_signers").write_text(signers_line(owner_key))
     (owner / ".gitignore").write_text("learner/\n.tutor/\n")
     (owner / "AGENTS.md").write_text("# AI Tutor\nversion 1\n")
     (owner / "my-work").mkdir()
@@ -49,10 +78,16 @@ def course(tutor_root, tmp_path, monkeypatch):
     git(tmp_path, "clone", "-q", str(upstream), str(learner_root))
     learner.onboard(STUDENT, root=learner_root)
     learner.plan_subject(SUBJECT, {"goal": "exam"}, root=learner_root)
+    RELEASES["key"], RELEASES["n"] = owner_key, 0
     return owner, upstream, learner_root
 
 
-def owner_pushes(owner, message, changes):
+RELEASES = {"key": None, "n": 0}
+
+
+def owner_pushes(owner, message, changes, release="signed", key=None):
+    """Commit and push to main, then cut a release: 'signed' (the owner's key, or key),
+    'unsigned', or None (no release: main only)."""
     for rel, content in changes.items():
         path = owner / rel
         if content is None:
@@ -62,6 +97,12 @@ def owner_pushes(owner, message, changes):
         path.write_text(content if isinstance(content, str) else json.dumps(content, indent=2))
     commit(owner, message)
     git(owner, "push", "-q", "origin", "main")
+    if release is None:
+        return None
+    RELEASES["n"] += 1
+    name = f"v2026.11.03.{RELEASES['n']}"
+    tag(owner, name, None if release == "unsigned" else (key or RELEASES["key"]))
+    return name
 
 
 def lesson(titles, status, planned=None, module="chapter-02"):
@@ -81,7 +122,7 @@ def test_fast_forward_when_nothing_local(course):
     owner_pushes(owner, "rules v2", {"AGENTS.md": "# AI Tutor\nversion 2\n",
                                      f"core/subjects/{SUBJECT}/chapter-03/lesson.json":
                                      lesson(["One", "Two"], "reviewed", module="chapter-03")})
-    assert update.update(me) == "fast-forward"
+    assert update.update(me) == "fast-forward:v2026.11.03.1"
     assert git(me, "rev-parse", "HEAD") == git(upstream, "rev-parse", "main")
     assert (me / "AGENTS.md").read_text() == "# AI Tutor\nversion 2\n"
     assert update.update(me) == "up-to-date"
@@ -180,7 +221,7 @@ def test_a_course_file_changed_on_both_sides_is_kept_and_retried(course):
     (me / "AGENTS.md").write_text("# AI Tutor\nmy local edit\n")
     owner_pushes(owner, "rules v2", {"AGENTS.md": "# AI Tutor\nversion 2\n",
                                      "core/allowed_hosts.txt": "example.com\n"})
-    assert update.update(me) == "partial:1"
+    assert update.update(me) == "partial:v2026.11.03.1:1"
     assert (me / "AGENTS.md").read_text() == "# AI Tutor\nmy local edit\n"
     assert (me / "core" / "allowed_hosts.txt").read_text() == "example.com\n"
     assert "kept the local AGENTS.md" in (me / "learner" / "tutor.log").read_text()
@@ -245,3 +286,152 @@ def test_hook_stays_silent_while_updating(course):
     assert out.returncode == 0 and out.stderr == ""
     assert set(json.loads(out.stdout)) == {"hookSpecificOutput"}
     assert (me / "AGENTS.md").read_text() == "# AI Tutor\nversion 2\n"
+
+
+# ---------- signed releases only (owner hardening) ----------
+
+def agents(me):
+    return (me / "AGENTS.md").read_text()
+
+
+def test_unsigned_tag_is_ignored(course):
+    owner, upstream, me = course
+    name = owner_pushes(owner, "v2", {"AGENTS.md": "# AI Tutor\nversion 2\n"}, release="unsigned")
+    assert update.update(me) == "no-signed-release"
+    assert agents(me) == "# AI Tutor\nversion 1\n"
+    assert f"release {name} is unsigned or not signed by a trusted key" in (me / "learner" / "tutor.log").read_text()
+
+
+def test_lightweight_tag_is_ignored(course):
+    owner, upstream, me = course
+    owner_pushes(owner, "v2", {"AGENTS.md": "# AI Tutor\nversion 2\n"}, release=None)
+    git(owner, "tag", "v2026.12.01")
+    git(owner, "push", "-q", "origin", "v2026.12.01")
+    assert update.update(me) == "no-signed-release"
+    assert agents(me) == "# AI Tutor\nversion 1\n"
+
+
+def test_tag_signed_by_an_unknown_key_is_ignored(course, tmp_path):
+    owner, upstream, me = course
+    evil = make_key(tmp_path / "keys", "evil")
+    owner_pushes(owner, "v2", {"AGENTS.md": "# AI Tutor\nevil\n"}, key=evil)
+    assert update.update(me) == "no-signed-release"
+    assert agents(me) == "# AI Tutor\nversion 1\n"
+
+
+def test_a_valid_signed_tag_is_applied_never_main_head(course):
+    owner, upstream, me = course
+    name = owner_pushes(owner, "v2", {"AGENTS.md": "# AI Tutor\nversion 2\n"})
+    owner_pushes(owner, "work in progress on main", {"AGENTS.md": "# AI Tutor\nunreleased\n"}, release=None)
+    assert update.update(me) == f"fast-forward:{name}"
+    assert agents(me) == "# AI Tutor\nversion 2\n"  # the release, not main's HEAD
+    assert git(me, "rev-parse", "HEAD") == git(upstream, "rev-parse", f"{name}^{{commit}}")
+    assert update.update(me) == "up-to-date"
+    assert agents(me) == "# AI Tutor\nversion 2\n"
+
+
+def test_newest_valid_release_wins_and_bad_ones_are_skipped(course, tmp_path):
+    owner, upstream, me = course
+    evil = make_key(tmp_path / "keys", "evil")
+    owner_pushes(owner, "v2", {"AGENTS.md": "# AI Tutor\nversion 2\n"})
+    owner_pushes(owner, "v3", {"AGENTS.md": "# AI Tutor\nversion 3\n"})
+    owner_pushes(owner, "evil", {"AGENTS.md": "# AI Tutor\nevil\n"}, key=evil)
+    assert update.update(me).endswith("v2026.11.03.2")
+    assert agents(me) == "# AI Tutor\nversion 3\n"
+
+
+def test_allowed_signers_swap_in_an_unsigned_release_is_rejected(course, tmp_path):
+    owner, upstream, me = course
+    evil = make_key(tmp_path / "keys", "evil")
+    trusted = (me / "docs" / "allowed_signers").read_text()
+    # an attacker publishes an unsigned release that trusts their key, then a release signed by it
+    owner_pushes(owner, "swap", {"docs/allowed_signers": signers_line(evil, "evil")}, release="unsigned")
+    owner_pushes(owner, "payload", {"AGENTS.md": "# AI Tutor\nevil\n"}, key=evil)
+    assert update.update(me) == "no-signed-release"
+    assert (me / "docs" / "allowed_signers").read_text() == trusted  # the learner's trust is unchanged
+    assert agents(me) == "# AI Tutor\nversion 1\n"
+    # an incoming allowed_signers is never used to verify the release that carries it
+    owner_pushes(owner, "swap signed by itself", {"docs/allowed_signers": signers_line(evil, "evil"),
+                                                  "AGENTS.md": "# AI Tutor\nevil 2\n"}, key=evil)
+    assert update.update(me) == "no-signed-release"
+    assert (me / "docs" / "allowed_signers").read_text() == trusted
+
+
+def test_key_rotation_signed_by_a_trusted_key_is_accepted(course, tmp_path):
+    owner, upstream, me = course
+    new_key = make_key(tmp_path / "keys", "owner-2027")
+    # the owner rotates: a release signed with the current key adds the new one
+    owner_pushes(owner, "rotate", {"docs/allowed_signers": signers_line(new_key, "owner-2027")})
+    owner_pushes(owner, "v3", {"AGENTS.md": "# AI Tutor\nversion 3\n"}, key=new_key)
+    assert update.update(me).endswith("v2026.11.03.2")
+    assert agents(me) == "# AI Tutor\nversion 3\n"
+    assert "owner-2027" in (me / "docs" / "allowed_signers").read_text()
+
+
+def test_no_trusted_key_means_no_updates(course):
+    owner, upstream, me = course
+    (me / "docs" / "allowed_signers").write_text("# no keys yet\n")
+    owner_pushes(owner, "v2", {"AGENTS.md": "# AI Tutor\nversion 2\n"})
+    assert update.update(me) == "no-signed-release"
+    assert "no trusted release key" in (me / "learner" / "tutor.log").read_text()
+
+
+# ---------- collector key changes are held back ----------
+
+def project_with_key(owner, key_b64, key_id="k1"):
+    project = json.loads((owner / "project.json").read_text())
+    project["collector"]["keys"] = [{"key_id": key_id, "public_key_b64": key_b64, "status": "active"}]
+    return project
+
+
+def test_a_collector_key_change_is_held_for_two_signed_releases(course):
+    import base64
+    import collect
+    import publish
+    from nacl.public import PrivateKey
+    owner, upstream, me = course
+    new = base64.b64encode(bytes(PrivateKey.generate().public_key)).decode()
+    owner_pushes(owner, "new key", {"project.json": project_with_key(owner, new)})
+    update.update(me)
+    assert json.loads((me / "project.json").read_text())["collector"]["keys"][0]["public_key_b64"] == new
+    assert collect.keys_trusted(me) is False
+    # nothing is collected or published for the new key yet
+    learner.set_sharing(True, me)
+    project = json.loads((me / "project.json").read_text())
+    project["collector"]["enabled"] = True
+    (me / "project.json").write_text(json.dumps(project))
+    tutor.record({"subject": SUBJECT, "module": "chapter-01",
+                  "steps": [{"step_ref": "b1-s1", "type": "learn", "outcome": "viewed"}]}, root=me)
+    import log_session
+    log_session.end(duration_min=5, root=me)
+    assert collect.collect_pending(me) == []
+    out = me / ".tutor" / "outbox" / "k1" / "2026-11-03"
+    out.mkdir(parents=True)
+    (out / ("a" * 32 + ".bin")).write_bytes(b"x")
+    assert publish.publish(me) == "held-key-change"
+    log = (me / "learner" / "tutor.log").read_text()
+    assert "collector keys changed in release v2026.11.03.1" in log and "held:" in log
+    (me / "project.json").write_text(json.dumps({**project, "collector": {**project["collector"], "enabled": False}}))
+    git(me, "checkout", "-q", "--", "project.json")
+    # the same key in a second consecutive signed release: now trusted
+    owner_pushes(owner, "next release", {"AGENTS.md": "# AI Tutor\nversion 2\n"})
+    update.update(me)
+    assert collect.keys_trusted(me) is True
+    assert "new collector key accepted after releases v2026.11.03.1, v2026.11.03.2" in \
+        (me / "learner" / "tutor.log").read_text()
+
+
+def test_a_one_off_key_swap_is_never_trusted(course):
+    import base64
+    import collect
+    from nacl.public import PrivateKey
+    owner, upstream, me = course
+    original = json.loads((owner / "project.json").read_text())
+    swapped = base64.b64encode(bytes(PrivateKey.generate().public_key)).decode()
+    owner_pushes(owner, "swap", {"project.json": project_with_key(owner, swapped)})
+    owner_pushes(owner, "revert", {"project.json": original})
+    owner_pushes(owner, "swap again", {"project.json": project_with_key(owner, swapped)})
+    update.update(me)
+    assert collect.keys_trusted(me) is False  # never two releases in a row
+    state = json.loads((me / ".tutor" / "collector_keys.json").read_text())
+    assert state["seen_in"] == ["v2026.11.03.3"]

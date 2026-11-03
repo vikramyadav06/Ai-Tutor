@@ -1,8 +1,18 @@
 #!/usr/bin/env python3
 """
-Course updates (TECH_SPEC §17, Phase 2.5): at session start the hook silently fetches upstream
-main and brings the learner's copy up to date: core/, AGENTS.md, CLAUDE.md, tools/, the hooks
-and settings, requirements and project.json (new collector keys arrive this way).
+Course updates (TECH_SPEC §17, Phase 2.5): at session start the hook silently fetches the
+upstream's signed release tags (vYYYY.MM.DD[.N]) and brings the learner's copy up to the newest
+one it can verify: core/, AGENTS.md, CLAUDE.md, tools/, the hooks and settings, requirements and
+project.json. Never main's HEAD.
+
+Trust:
+- Each release tag must be an annotated tag with an SSH signature that `git verify-tag` accepts
+  against docs/allowed_signers **from the learner's current copy** (snapshotted before anything
+  changes), never from the incoming update. Releases are checked oldest first; a release signed
+  by a trusted key may change allowed_signers for the releases after it. An unsigned or badly
+  signed tag is skipped and logged; no update comes from it.
+- Collector keys in project.json are only trusted once two consecutive signed releases carry
+  them (collect.observe_release_keys); until then nothing is collected or published.
 
     python tools/update.py
 
@@ -21,7 +31,9 @@ Rules:
 import datetime as dt
 import json
 import os
+import re
 import subprocess
+import tempfile
 import sys
 from pathlib import Path
 
@@ -30,7 +42,9 @@ import learner  # noqa: E402
 import tutorlog  # noqa: E402
 
 ROOT = Path(os.environ.get("TUTOR_ROOT") or Path(__file__).resolve().parents[1])
-UPSTREAM_REF = "refs/tutor-upstream/main"
+TAG_NS = "refs/tutor-upstream/tags"
+RELEASE_TAG = re.compile(r"^v(\d{4})\.(\d{2})\.(\d{2})(?:\.(\d{1,3}))?$")
+SIGNERS = "docs/allowed_signers"
 MANAGED = ("core/", "tools/", ".claude/", ".github/", "docs/", "AGENTS.md", "CLAUDE.md", "README.md",
            "project.json", "requirements-tutor.txt", "requirements-dev.txt", "pytest.ini", ".gitignore")
 NEVER = ("learner/", "my-work/", ".tutor/")
@@ -83,21 +97,26 @@ def busy(root):
 
 
 def update(root=None):
-    """Returns 'offline', 'busy:<why>', 'up-to-date', 'fast-forward', 'updated:<n>' or
-    'partial:<n>' (some files kept local; retried next time)."""
+    """Returns 'offline', 'busy:<why>', 'no-signed-release', 'up-to-date', 'fast-forward:<tag>',
+    'updated:<tag>:<n>' or 'partial:<tag>:<n>' (some files kept local; retried next time)."""
     root = Path(root or ROOT)
     if not (root / ".git").exists() or not (learner.learner_dir(root) / "profile.json").exists():
         return "not-a-learner-copy"  # never update a developer's checkout
     why = busy(root)
     if why:
         return f"busy:{why}"
-    fetched = git(root, "fetch", "--quiet", "--no-tags", upstream_url(root), f"+refs/heads/main:{UPSTREAM_REF}",
-                  check=False, timeout=30)
+    fetched = git(root, "fetch", "--quiet", "--no-tags", "--prune", upstream_url(root),
+                  f"+refs/tags/v*:{TAG_NS}/v*", check=False, timeout=30)
     if fetched.returncode != 0:
         return "offline"
-    upstream = git(root, "rev-parse", UPSTREAM_REF).stdout.strip()
-    head = git(root, "rev-parse", "HEAD").stdout.strip()
     state = learner.read_json(_state_path(root), {})
+    import collect
+    collect.ensure_key_baseline(root)  # the keys trusted before any update are the starting point
+    release = newest_verified_release(root, state)
+    if release in ("up-to-date", "no-signed-release"):
+        return release
+    tag, upstream = release
+    head = git(root, "rev-parse", "HEAD").stdout.strip()
     base = state.get("applied")
     if not base or git(root, "cat-file", "-e", f"{base}^{{commit}}", check=False).returncode != 0:
         mb = git(root, "merge-base", "HEAD", upstream, check=False)
@@ -105,7 +124,7 @@ def update(root=None):
             return "busy:no common history with upstream"
         base = mb.stdout.strip()
     if base == upstream or git(root, "merge-base", "--is-ancestor", upstream, "HEAD", check=False).returncode == 0:
-        learner.write_private_json(_state_path(root), {**state, "applied": upstream})
+        learner.write_private_json(_state_path(root), {**state, "applied": upstream, "applied_tag": tag})
         return "up-to-date"
 
     # a true fast-forward when nothing local is in the way
@@ -113,9 +132,9 @@ def update(root=None):
     if head == base and clean:
         before = lesson_snapshot(root)
         if git(root, "merge", "--ff-only", "--quiet", upstream, check=False).returncode == 0:
-            learner.write_private_json(_state_path(root), {**state, "applied": upstream})
+            learner.write_private_json(_state_path(root), {**state, "applied": upstream, "applied_tag": tag})
             after_lesson_changes(root, before)
-            return "fast-forward"
+            return f"fast-forward:{tag}"
 
     # otherwise: course paths only, file by file, one new commit
     changed = git(root, "diff", "--name-status", "--no-renames", "-z", base, upstream).stdout.split("\0")
@@ -152,9 +171,75 @@ def update(root=None):
     for path, old_lesson in replaced.items():
         carry_progress(root, path, old_lesson)
     if not kept:
-        learner.write_private_json(_state_path(root), {**state, "applied": upstream})
-        return f"updated:{len(applied)}"
-    return f"partial:{len(applied)}"
+        learner.write_private_json(_state_path(root), {**state, "applied": upstream, "applied_tag": tag})
+        return f"updated:{tag}:{len(applied)}"
+    return f"partial:{tag}:{len(applied)}"
+
+
+def version(tag):
+    m = RELEASE_TAG.match(tag)
+    return tuple(int(x or 0) for x in m.groups()) if m else None
+
+
+def has_keys(signers_text):
+    return any(line.strip() and not line.lstrip().startswith("#") for line in signers_text.splitlines())
+
+
+def verify_tag(root, ref, signers_text):
+    """True only for an annotated tag with an SSH signature from a key in signers_text."""
+    if git(root, "cat-file", "-t", ref, check=False).stdout.strip() != "tag":
+        return False  # a lightweight tag can't be signed
+    body = git(root, "cat-file", "tag", ref, check=False).stdout
+    if "-----BEGIN SSH SIGNATURE-----" not in body or "-----BEGIN PGP" in body:
+        return False  # only SSH signatures; never the learner's own GPG keyring
+    if not has_keys(signers_text):
+        return False
+    with tempfile.NamedTemporaryFile("w", suffix=".signers", delete=False) as f:
+        f.write(signers_text)
+        signers_file = f.name
+    try:
+        done = git(root, "-c", "gpg.format=ssh", "-c", f"gpg.ssh.allowedSignersFile={signers_file}",
+                   "verify-tag", ref, check=False)
+        return done.returncode == 0
+    finally:
+        os.unlink(signers_file)
+
+
+def newest_verified_release(root, state):
+    """(tag, commit) of the newest signed release after the one applied, checking releases oldest
+    first so a trusted signer can rotate allowed_signers. Feeds each verified release's collector
+    keys to the key-trust check. 'up-to-date' if no release is newer than the applied one,
+    'no-signed-release' if newer ones exist but none verifies."""
+    import collect
+    signers_path = Path(root) / SIGNERS
+    signers = signers_path.read_text(encoding="utf-8") if signers_path.is_file() else ""  # snapshot now
+    applied = version(state.get("applied_tag", "")) or ()
+    names = [line.rsplit("/", 1)[-1] for line in
+             git(root, "for-each-ref", "--format=%(refname)", f"{TAG_NS}/").stdout.split()]
+    releases = sorted((version(n), n) for n in names if version(n) and version(n) > applied)
+    if not releases:
+        return "up-to-date"
+    if not has_keys(signers):
+        tutorlog.log(root, "update", f"no trusted release key in {SIGNERS}; no updates")
+        return "no-signed-release"
+    best = "no-signed-release"
+    for _, name in releases:
+        ref = f"{TAG_NS}/{name}"
+        if not verify_tag(root, ref, signers):
+            tutorlog.log(root, "update", f"release {name} is unsigned or not signed by a trusted key; ignored")
+            continue
+        commit = git(root, "rev-parse", f"{ref}^{{commit}}").stdout.strip()
+        best = (name, commit)
+        rotated = blob(root, commit, SIGNERS)
+        if rotated is not None:
+            signers = rotated.decode("utf-8", "replace")  # trusted by the release that carries it
+        project = blob(root, commit, "project.json")
+        if project is not None:
+            try:
+                collect.observe_release_keys(root, name, json.loads(project)["collector"])
+            except (ValueError, KeyError):
+                tutorlog.log(root, "keys", f"release {name} has an unreadable project.json")
+    return best
 
 
 def is_lesson(path):
