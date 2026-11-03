@@ -11,3 +11,4 @@ __pycache__/
 test-results/
 allure-results/
 .env
+.claude/settings.local.json
