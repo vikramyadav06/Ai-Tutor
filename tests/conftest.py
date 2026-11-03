@@ -69,3 +69,11 @@ def run_tool(tutor_root):
             raise AssertionError(f"{name} {args} failed ({result.returncode}): {result.stderr}")
         return result
     return run
+
+
+@pytest.fixture(autouse=True)
+def no_network_upstream(monkeypatch, tmp_path_factory):
+    """Tests never reach GitHub: by default the course upstream is a missing local repo (so the
+    session-start update behaves as offline). Tests of updates point it at a local bare repo."""
+    missing = tmp_path_factory.mktemp("no-upstream") / "missing.git"
+    monkeypatch.setenv("TUTOR_UPSTREAM_URL", str(missing))

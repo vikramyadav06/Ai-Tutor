@@ -190,6 +190,13 @@ def _history(root, rel, data, side, stamp):
     path.write_bytes(data)
 
 
+def _reviewed(data):
+    try:
+        return json.loads(data).get("status") == "reviewed"
+    except (ValueError, UnicodeDecodeError, AttributeError):
+        return False
+
+
 def _merge_jsonl(local, remote):
     """Append-only logs: every line from both, in time order, each once."""
     local_lines = {line for line in local.decode("utf-8").splitlines() if line.strip()}
@@ -280,6 +287,9 @@ def merge_file(root, rel, remote, remote_mtime, stamp):
     if local == remote:
         return False
     local_mtime = path.stat().st_mtime
+    if rel.startswith("core/subjects/") and rel.endswith("/lesson.json") and _reviewed(local) and not _reviewed(remote):
+        _history(root, rel, remote, "other-device", stamp)  # a reviewed lesson is never replaced by a draft
+        return False
     try:
         if rel.startswith("learner/sessions/") and rel.endswith(".jsonl"):
             merged = _merge_jsonl(local, remote)

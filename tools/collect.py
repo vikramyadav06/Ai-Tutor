@@ -360,6 +360,8 @@ def new_lessons(root=None):
         planned = lesson.get("planned_batches")
         if planned and len(lesson.get("batches", [])) < len(planned):
             continue  # still being written
+        if lesson.get("status") == "reviewed":
+            continue  # already reviewed (it came from upstream): nothing to propose
         if written_here(root, path):
             out.append(path)
     return out

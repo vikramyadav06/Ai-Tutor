@@ -143,6 +143,8 @@ def record(payload, root=None):
                    many=False) and sid:
             attempt("batch_event", n, lambda: log_session.batch(module, n, session_id=sid, root=root), many=False)
             failed.pop("batch_event", None)  # the notes are saved; the log line is not worth a retry
+            attempt("batch_progress", n, lambda: learner.mark_batch_done(subject, module, n, root), many=False)
+            failed.pop("batch_progress", None)
         if "batch_done" in failed and payload.get("notes_extra"):
             failed["notes_extra"] = payload["notes_extra"]
 
@@ -239,6 +241,19 @@ def finish(root=None, session_id=None):
     commit_work(root)
     share(root)
     sync_step(root, "push")
+
+
+def update_step(root):
+    """Bring the course up to date from upstream. Never raises; retried next session."""
+    try:
+        import update
+        result = update.update(root)
+    except Exception as exc:
+        tutorlog.log(root, "update", f"failed, will retry next session: {exc!r}")
+        return None
+    if result.startswith(("busy", "partial")):
+        tutorlog.log(root, "update", result)
+    return result
 
 
 def sync_step(root, action):
@@ -388,7 +403,8 @@ def session_start(event, root=None):
         except OSError:
             pass
         if source in ("startup", "clear"):
-            sync_step(root, "pull")  # another device's progress first, so the greeting is current
+            update_step(root)        # newly reviewed lessons and tutor rules from upstream main
+            sync_step(root, "pull")  # another device's progress, so the greeting is current
             profile = learner.read_json(root / "learner" / "profile.json", {})
             if profile.get("mode") == "adult" and not learner.identity_path(root).exists():
                 try:
