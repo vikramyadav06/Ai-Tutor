@@ -55,3 +55,10 @@ def test_agents_md_review_rules():
     for needle in ("no emojis", "one batch at a time", "chapter list from them", "never from memory",
                    "provisional", "never invent marks", "unreviewed", "Never guess"):
         assert needle in text, needle
+
+
+def test_agents_md_consent_rules():
+    text = (REPO / "AGENTS.md").read_text(encoding="utf-8")
+    for needle in ("student mode", "adult mode", "never ask and never mention sharing",
+                   "show the learner code once", "delete my data"):
+        assert needle.lower() in text.lower(), needle

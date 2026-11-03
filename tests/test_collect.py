@@ -285,3 +285,13 @@ def test_consent_samples_follow_the_mode():
     assert student["schema"] == "session.student.v1"
     assert not all_keys({"properties": student}) & LINKABLE
     assert "answer_text" not in json.dumps(student) and "comment" not in json.dumps(student)
+
+
+def test_delete_request_through_record(tutor_root, keypair, config):
+    project = json.loads((tutor_root / "project.json").read_text())
+    project["collector"] = config
+    (tutor_root / "project.json").write_text(json.dumps(project))
+    learner.onboard(ADULT, root=tutor_root)
+    tutor.record({"delete_request": True}, root=tutor_root)  # no git repo here: stays in the outbox
+    [path] = list((tutor_root / ".tutor" / "outbox").rglob("*.bin"))
+    assert decrypt(path, keypair)["record"]["schema"] == "delete.v1"

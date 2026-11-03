@@ -46,7 +46,9 @@ KNOWN_KEYS = {"subject", "module", "agent", "session_id", "steps", "moves", "sig
               "private_terms", "batch_done", "notes_extra", "module_done", "model", "progress_entry",
               "feedback", "end",
               # the three allowed interruptions, recorded once each (TECH_SPEC §15)
-              "sharing", "code_shown", "gh_login_asked"}
+              "sharing", "code_shown", "gh_login_asked",
+              # the learner asked to delete their shared data (adults)
+              "delete_request"}
 EXPECTED = (learner.TutorError, log_session.LogError, KeyError, TypeError, ValueError)
 COMMIT_PATHS = ("my-work", "core/subjects")
 COMMIT_MESSAGE = "tutor: save work and lessons"
@@ -161,6 +163,18 @@ def record(payload, root=None):
     if fb and sid:
         attempt("feedback", fb, lambda: log_session.feedback(fb["rating"], fb.get("comment"),
                                                               session_id=sid, root=root), many=False)
+
+    if payload.get("delete_request"):
+        def delete():
+            import collect
+            collect.request_delete(root)
+            import publish
+            publish.publish(root)
+        try:
+            delete()
+        except Exception as exc:
+            tutorlog.log(root, "record", f"delete request not sent yet: {exc}")
+            failed["delete_request"] = True
 
     if payload.get("end"):
         finish(root, session_id=sid)
