@@ -849,6 +849,121 @@ def set_progress(subject, module, status, root=None):
     return plan
 
 
+def _norm_title(title):
+    return " ".join(re.sub(r"[^a-z0-9 ]+", " ", str(title).lower()).split())
+
+
+def mark_batch_done(subject, module, batch, root=None):
+    """Remember which batches of a module are done (by title, so progress survives a lesson
+    being replaced by a reviewed version)."""
+    folder = subject_dir(subject, root)
+    plan = read_json(folder / "plan.json")
+    lesson = read_json(Path(root or ROOT) / "core" / "subjects" / subject / module / "lesson.json")
+    if plan is None or lesson is None:
+        return None
+    batches = lesson.get("batches", [])
+    if not 1 <= batch <= len(batches):
+        raise TutorError(f"{module} has {len(batches)} batches; got batch {batch}")
+    title = batches[batch - 1].get("title", f"batch {batch}")
+    for row in plan["modules"]:
+        if row["id"] == module:
+            done = row.setdefault("batches_done", [])
+            if title not in done:
+                done.append(title)
+            if row.get("status") == "not-started":
+                row["status"] = "in-progress"
+            break
+    else:
+        return None
+    plan["updated"] = today()
+    write_json(folder / "plan.json", plan)
+    return plan
+
+
+def map_batches(done_titles, old_lesson, new_lesson):
+    """Which batches of a new (reviewed) lesson count as done, given the batches done in the
+    old one. Same or similar titles carry over; otherwise the same share of the chapter, rounded
+    down, so nothing new is skipped."""
+    import difflib
+    import math
+    old_titles = [b.get("title", "") for b in old_lesson.get("batches", [])]
+    new_titles = [b.get("title", "") for b in new_lesson.get("batches", [])]
+    planned = old_lesson.get("planned_batches") or old_titles
+    if not new_titles:
+        return []
+    done_norm = [_norm_title(t) for t in done_titles]
+    new_norm = [_norm_title(t) for t in new_titles]
+    matched = set()
+    for d in done_norm:
+        if d in new_norm:
+            matched.add(new_norm.index(d))
+            continue
+        best = difflib.get_close_matches(d, [n for i, n in enumerate(new_norm) if i not in matched], n=1, cutoff=0.75)
+        if best:
+            matched.add(new_norm.index(best[0]))
+    share = len(done_titles) / max(len(planned), 1)
+    by_share = math.floor(share * len(new_titles) + 1e-9)
+    count = max(len(matched), by_share)
+    keep = sorted(matched)
+    for i in range(len(new_titles)):  # fill from the start of the chapter
+        if len(keep) >= count:
+            break
+        if i not in keep:
+            keep.append(i)
+    return [new_titles[i] for i in sorted(keep)]
+
+
+def _syllabus_key(catalog):
+    s = catalog.get("syllabus") or {}
+    if not s.get("board") or not s.get("textbook") or not s.get("edition"):
+        return None
+    return (s["board"].lower(), " ".join(s["textbook"].lower().split()), s["edition"].lower().strip())
+
+
+def find_reviewed_lesson(subject, module, root=None):
+    """A reviewed lesson for the same chapter: this subject's own, or one in another subject
+    built from the same board, textbook and edition with the same chapter number."""
+    base = Path(root or ROOT) / "core" / "subjects"
+    own = read_json(base / subject / module / "lesson.json")
+    if own and own.get("status") == "reviewed":
+        return base / subject / module
+    catalog = read_json(base / subject / "catalog.json") or {}
+    key = _syllabus_key(catalog)
+    chapter = next((m.get("chapter") for m in catalog.get("modules", []) if m.get("id") == module), None)
+    if key is None or chapter is None:
+        return None
+    for other in sorted(base.glob("*/catalog.json")):
+        if other.parent.name == subject:
+            continue
+        theirs = read_json(other) or {}
+        if _syllabus_key(theirs) != key or (theirs.get("syllabus") or {}).get("provisional"):
+            continue
+        for m in theirs.get("modules", []):
+            lesson = read_json(other.parent / m["id"] / "lesson.json")
+            if m.get("chapter") == chapter and lesson and lesson.get("status") == "reviewed":
+                return other.parent / m["id"]
+    return None
+
+
+def reuse_lesson(subject, module, root=None):
+    """Use a reviewed lesson instead of writing one. Returns the source folder or None."""
+    import shutil
+    source = find_reviewed_lesson(subject, module, root)
+    if source is None:
+        return None
+    target = Path(root or ROOT) / "core" / "subjects" / subject / module
+    if source.resolve() == target.resolve():
+        return source
+    target.mkdir(parents=True, exist_ok=True)
+    lesson = read_json(source / "lesson.json")
+    lesson.update(id=module, subject=subject)  # same chapter, filed under the learner's subject
+    write_json(target / "lesson.json", lesson)
+    for sub in ("exercises", "solutions"):
+        if (source / sub).is_dir():
+            shutil.copytree(source / sub, target / sub, dirs_exist_ok=True)
+    return source
+
+
 def next_module(plan):
     for status in ("in-progress", "not-started"):
         for row in plan["modules"]:
@@ -885,13 +1000,18 @@ def append_notes(subject, module, batch, extra=None, root=None):
     return out
 
 
-def lesson_state(subject, module, root=None):
+def lesson_state(subject, module, root=None, done=()):
     lesson = read_json(Path(root or ROOT) / "core" / "subjects" / subject / module / "lesson.json")
     if lesson is None:
         return "not written yet"
     written, planned = len(lesson.get("batches", [])), len(lesson.get("planned_batches") or [])
     state = f"{written}/{planned} batches written" if planned and written < planned else "written"
-    return state + (", unreviewed" if lesson.get("status") != "reviewed" else "")
+    state += ", unreviewed" if lesson.get("status") != "reviewed" else ", reviewed"
+    titles = [b.get("title", "") for b in lesson.get("batches", [])]
+    remaining = [i for i, t in enumerate(titles, 1) if t not in set(done)]
+    if done and remaining:
+        state += f"; resume at batch {remaining[0]} of {len(titles)} \"{titles[remaining[0] - 1]}\""
+    return state
 
 
 def summary(root=None):
@@ -917,7 +1037,8 @@ def summary(root=None):
             continue
         done = sum(r["status"] == "done" for r in plan["modules"])
         nxt = next_module(plan)
-        nxt_text = (f"next: {nxt['title']} ({nxt['id']}, {lesson_state(subject, nxt['id'], root)})"
+        nxt_text = (f"next: {nxt['title']} ({nxt['id']}, "
+                    f"{lesson_state(subject, nxt['id'], root, nxt.get('batches_done', []))})"
                     if nxt else "all modules done")
         lines.append(f"Subject {subject}: {done}/{len(plan['modules'])} done, {nxt_text}")
         if plan.get("board") or plan.get("textbook"):
@@ -981,6 +1102,10 @@ def main(argv=None):
     sub.add_parser("mode", help="print adult or student")
     sub.add_parser("consent-sample", help="print the example record to show with the consent question")
     sub.add_parser("sharing-check", help="print the packages sharing still needs (nothing if ready)")
+    p = sub.add_parser("reuse-lesson", help="use a reviewed lesson for this chapter if one exists "
+                                            "(prints its folder, or nothing if you must write one)")
+    p.add_argument("subject")
+    p.add_argument("module")
     sub.add_parser("install-sharing-packages", help="install them into .tutor/pylib (after the learner agrees)")
     sub.add_parser("show", help="summary for the start of a session")
     args = parser.parse_args(argv)
@@ -1021,6 +1146,10 @@ def main(argv=None):
             missing = missing_packages()
             if missing:
                 print(" ".join(missing))
+        elif args.cmd == "reuse-lesson":
+            source = reuse_lesson(args.subject, args.module)
+            if source:
+                print(Path(source).relative_to(ROOT).as_posix())
         elif args.cmd == "install-sharing-packages":
             install_packages()
         elif args.cmd == "consent-sample":
