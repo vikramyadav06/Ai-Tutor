@@ -34,26 +34,35 @@ Ask age as a band only. Never ask for a birth date.
 
 For learners under 13, suggest a nickname.
 
-## Round 4: school and college subjects (syllabus and exam)
+## Round 4: school and college subjects (their book, their exam)
+
+**The syllabus comes from the learner, never from memory.** Textbooks change (NCERT replaced
+its Class 9 Science book for 2026-27, for example), so what you remember may be out of date.
 
 For any school or college subject (level `primary` to `postgraduate`, or a learner preparing
 for a school, board or university exam), always ask:
 
 | Ask | Store as (subject answers) | Notes |
 | --- | --- | --- |
-| Which board or university? (CBSE, ICSE/CISCE, a state board, IB, Cambridge, a university) | `board` | Boards are not personal. A **university or college name is**: add it to `private_terms` and store only the board-like part (e.g. "B.Sc. Physics, semester 1") |
-| Which syllabus or textbook? (e.g. NCERT, Selina, the university's syllabus for this course) | `syllabus` | |
-| Which chapters or units are in your exam? (all, or the list) | `exam_units` | `"all"`, or the matching module ids |
+| Which board? | `board` | One of `cbse`, `cisce`, `nios`, `ib`, `cambridge`, `state-board`, `university`, `other`. A **university or college name is personal**: never store it; add it to `private_terms` |
+| What is your textbook called, and which edition or year is it? | `textbook`, `edition` | As printed on the cover, e.g. "Exploration", "2026-27" |
+| Can you send me its list of chapters? Type it, paste it, or send a photo of the contents page | the catalog's modules | One module per chapter, in the book's order, with the book's own titles |
+| Which of those chapters are in your exam? (all, or the list) | `exam_units` | `"all"`, or module ids |
 | When is the exam? | `exam_date` | YYYY-MM-DD |
+| Do you have the official marking scheme (marks per chapter or unit)? | catalog `weightage` | Only from a scheme they give you. Never invent marks; without one, chapters count as equal |
 
-- The plan must cover **the whole required syllabus**: every chapter in their exam. If the
-  learner's chapter isn't a module in the catalog yet, add it to the catalog first (in the
-  syllabus's own order and wording) and only then build the plan.
-- If they don't know which chapters are in the exam, plan the whole syllabus (`"all"`) and
-  ask them to check with their teacher or syllabus.
-- If the subject's catalog follows a different board or syllabus than theirs, write a
-  catalog for theirs (e.g. `class-9-science-icse`); never teach one board's syllabus as
-  another's.
+Then:
+
+- **Build the catalog only from their chapter list** (`generating-lessons.md`): board,
+  textbook, edition, `"source": "learner"`, `"provisional": false`. The subject id names the
+  book, e.g. `class-9-science-exploration`. If a catalog for exactly that board, textbook and
+  edition already exists, check its chapters against their list and use it.
+- **If they can't provide the list**, build a provisional catalog (`"provisional": true`),
+  tell them plainly that the plan is provisional until they check the chapters with their
+  teacher, and ask for the contents page again next session. Rebuild the plan once you have it.
+- The plan covers **every chapter in their exam**. If the time doesn't fit, say so (step 6
+  below). With an official marking scheme, the highest-mark chapters go first; without one,
+  chapters keep the book's order.
 
 ## Save the profile
 
@@ -84,15 +93,16 @@ answers and run it again without mentioning it to the learner.
 4. Build the plan:
 
 ```bash
-python tools/learner.py plan class-9-science --answers '{"goal": "exam", "board": "CBSE",
-  "syllabus": "NCERT Science Class 9", "exam_units": "all", "exam_date": "2027-03-01"}'
+python tools/learner.py plan class-9-science-exploration --answers '{"goal": "exam", "board": "cbse",
+  "textbook": "Exploration", "edition": "2026-27", "exam_units": "all", "exam_date": "2027-03-01"}'
 ```
 
 5. Tell them their path in plain words, from `learner/subjects/<subject-id>/plan.md`
-   ("all 12 chapters, about 5 weeks at an hour a day, starting with Matter") and ask if they
+   ("all 13 chapters of your book, about 6 weeks at an hour a day") and ask if they
    want to change anything. If so, re-run `plan` with new answers. Don't mention the file.
 6. **If the time doesn't fit** (the plan says "Not enough time"), say so plainly: how many
-   hours it needs, how many there are, and that you've put the highest-mark chapters first.
+   hours it needs, how many there are, and how you ordered it: highest-mark chapters first if
+   they gave you an official marking scheme, otherwise the book's order (all chapters equal).
    Offer the two fixes: more time per day, or dropping extras. Name the chapters that won't
    fit at this pace. Never quietly drop syllabus chapters.
 

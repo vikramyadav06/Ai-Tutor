@@ -31,6 +31,7 @@ LANG = re.compile(r"^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$")
 LEVELS = {"primary", "middle", "secondary", "college", "postgraduate", "professional", "self-learner"}
 KINDS = {"core", "focus", "optional"}
 STATUSES = {"unreviewed", "reviewed"}
+BOARDS = ["cbse", "cisce", "nios", "ib", "cambridge", "state-board", "university", "other"]
 # Emoji and pictographs; lessons stay plain (arrows, degree signs and maths symbols are fine).
 EMOJI = re.compile("[\U0001F000-\U0001FAFF\u2600-\u26FF\u2700-\u27BF\uFE0F]")
 # TECH_SPEC §12: the only command an agent may run from a lesson.
@@ -235,11 +236,29 @@ def check_catalog(subject_id, catalog, errors, where):
         if level not in LEVELS:
             errors.append(f"{where}: unknown level {level!r}")
     syllabus = catalog.get("syllabus")
-    if syllabus is not None and (not isinstance(syllabus, dict) or not syllabus.get("board") or not syllabus.get("name")):
-        errors.append(f"{where}: 'syllabus' needs 'board' and 'name', e.g. "
-                      '{"board": "CBSE", "name": "NCERT Science Class 9 (2025-26)"}')
+    if syllabus is not None:
+        if not isinstance(syllabus, dict):
+            syllabus = {}
+            errors.append(f"{where}: 'syllabus' must be an object")
+        if syllabus.get("board") not in BOARDS:
+            errors.append(f"{where}: syllabus 'board' must be one of {BOARDS} (never an institution's name)")
+        for key in ("textbook", "edition"):
+            if not isinstance(syllabus.get(key), str) or not syllabus[key].strip():
+                errors.append(f"{where}: syllabus needs '{key}' (from the learner's own book)")
+        if syllabus.get("source") not in ("learner", "official"):
+            errors.append(f"{where}: syllabus 'source' must be 'learner' (their contents page) or 'official' "
+                          "(an official syllabus they gave you); never memory")
+        if not isinstance(syllabus.get("provisional"), bool):
+            errors.append(f"{where}: syllabus 'provisional' must be true or false")
+        scheme = syllabus.get("marking_scheme")
+        if scheme is not None and (not isinstance(scheme, dict) or not scheme.get("source")):
+            errors.append(f"{where}: syllabus 'marking_scheme' needs a 'source' (the official scheme the learner gave)")
+
     modules = [m for m in catalog.get("modules", []) if isinstance(m, dict)]
     ids = [m.get("id") for m in modules]
+    if any("weightage" in m for m in modules) and not ((catalog.get("syllabus") or {}).get("marking_scheme")):
+        errors.append(f"{where}: 'weightage' needs syllabus.marking_scheme: use only an official marking "
+                      "scheme the learner provides, never invent marks (otherwise chapters count as equal)")
     if len(ids) != len(set(ids)):
         errors.append(f"{where}: duplicate module ids")
     for m in modules:
@@ -253,6 +272,8 @@ def check_catalog(subject_id, catalog, errors, where):
         if "weightage" in m and (isinstance(m["weightage"], bool) or not isinstance(m["weightage"], (int, float))
                                  or m["weightage"] <= 0):
             errors.append(f"{where}: module {mid!r} 'weightage' must be a positive number (exam marks)")
+        if "chapter" in m and (isinstance(m["chapter"], bool) or not isinstance(m["chapter"], int) or m["chapter"] < 1):
+            errors.append(f"{where}: module {mid!r} 'chapter' must be the chapter number in the book")
         if m.get("kind") not in KINDS:
             errors.append(f"{where}: module {mid!r} 'kind' must be one of {sorted(KINDS)}")
         for req in m.get("requires", []):

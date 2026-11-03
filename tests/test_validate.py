@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[1]
-GENERATED = Path(__file__).resolve().parent / "fixtures" / "subjects" / "class-9-science" / "matter" / "lesson.json"
+GENERATED = Path(__file__).resolve().parent / "fixtures" / "subjects" / "class-9-science-exploration" / "chapter-01" / "lesson.json"
 
 
 @pytest.fixture
@@ -41,7 +41,7 @@ def test_generated_lesson_validates(validate_tool, tutor_root, lesson):
     """TECH_SPEC §14 Phase 1: a generated lesson validates."""
     assert check(validate_tool, lesson) == []
     assert scan(validate_tool, lesson) == []
-    path = tutor_root / "core" / "subjects" / "class-9-science" / "matter" / "lesson.json"
+    path = tutor_root / "core" / "subjects" / "class-9-science-exploration" / "chapter-01" / "lesson.json"
     errors, flags, _ = validate_tool.validate([str(path)], private_terms_path=REPO / "no-such-file")
     assert errors == [] and flags == []
     errors, flags, _ = validate_tool.validate([str(path.parent.parent)], private_terms_path=REPO / "no-such-file")
@@ -211,10 +211,25 @@ def test_no_emojis_in_lessons(validate_tool, lesson, text, bad):
     assert any("emoji" in e for e in check(validate_tool, lesson)) is bad
 
 
-def test_catalog_weightage_and_syllabus(validate_tool):
+def test_catalog_syllabus_comes_from_the_learner(validate_tool):
     errors = []
-    catalog = {"subject": "x", "title": "X", "syllabus": {"board": "CBSE"},
+    catalog = {"subject": "x", "title": "X",
+               "syllabus": {"board": "Delhi University", "textbook": "", "source": "memory"},
                "modules": [{"id": "a", "title": "A", "hours": 1, "kind": "core", "requires": [], "weightage": 0}]}
     validate_tool.check_catalog("x", catalog, errors, "catalog")
-    assert any("'weightage' must be a positive number" in e for e in errors)
-    assert any("'syllabus' needs 'board' and 'name'" in e for e in errors)
+    text = "\n".join(errors)
+    for expected in ("'board' must be one of", "needs 'textbook'", "needs 'edition'", "never memory",
+                     "'provisional' must be true or false", "'weightage' must be a positive number",
+                     "never invent marks"):
+        assert expected in text, expected
+
+
+def test_weightage_is_fine_with_a_provided_marking_scheme(validate_tool):
+    errors = []
+    catalog = {"subject": "x", "title": "X",
+               "syllabus": {"board": "cbse", "textbook": "Exploration", "edition": "2026-27", "source": "learner",
+                            "provisional": False, "marking_scheme": {"source": "official scheme from the learner"}},
+               "modules": [{"id": "a", "title": "A", "hours": 1, "kind": "core", "requires": [], "weightage": 10,
+                            "chapter": 1}]}
+    validate_tool.check_catalog("x", catalog, errors, "catalog")
+    assert errors == []

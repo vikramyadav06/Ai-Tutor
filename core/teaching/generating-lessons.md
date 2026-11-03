@@ -10,9 +10,11 @@ future learner and a reviewer will read them.
 2. Write `core/subjects/<id>/catalog.json` (format: `subject-catalog.md`): 4-15 modules in a
    sensible order with realistic `hours`, `kind` (`core` for the main path), `requires`, and
    0-3 subject `questions` with `rules` if they really change the plan (e.g. "already know
-   the basics?" → shorten early modules). School and college subjects follow the learner's
-   board and syllabus exactly: one module per chapter or unit, in its order, with `syllabus`
-   and (only if you can confirm it from the official syllabus) `weightage`.
+   the basics?" → shorten early modules). **School and college subjects: only from the
+   learner's own chapter list** (typed, pasted, or a photo of the contents page), one module
+   per chapter in the book's order and with its titles, never from memory. Set `syllabus`
+   (board, textbook, edition, `"source": "learner"`, `provisional`). Add `weightage` only from
+   an official marking scheme the learner gives you, and record its `marking_scheme.source`.
 3. Add it to `core/subjects/index.json`:
    `{"id": "<id>", "title": "...", "levels": ["secondary"], "path": "core/subjects/<id>"}`
 4. Run `python tools/validate.py core/subjects/<id>` and fix every problem.
@@ -42,6 +44,8 @@ Never make the learner wait while a whole lesson is written.
 
 Go through the batch step by step against the learner's syllabus and textbook:
 
+- Is this content in the learner's chapter, as their book's contents page and chapter title
+  describe it? Don't import topics from an older edition you remember.
 - Every fact, definition, number, unit, formula, date and name: is it what this syllabus
   says, at this level? Recompute every calculation and numerical answer.
 - `choice`: exactly one right option, `answer` points at it, wrong options are clearly wrong.

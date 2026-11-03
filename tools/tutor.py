@@ -23,7 +23,7 @@ Record payload (every key optional; see core/teaching/steps-and-notes.md):
      "batch_done": 1, "notes_extra": "one personal revision line",
      "module_done": true,
      "model": {"set": {"pace": "slow"}, "add": {"weak_areas": ["latent-heat"]}, "remove": {}},
-     "progress_entry": "### 2026-11-03 – Matter\\n- Learned: ...",
+     "progress_entry": "### 2026-11-03 – Chapter 1\\n- Learned: ...",
      "feedback": {"rating": 5, "comment": "..."},
      "end": true}
 

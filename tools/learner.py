@@ -52,7 +52,10 @@ MODEL_LISTS = {
 MODEL_VALUES = {"journey_stage": JOURNEY_STAGES, "pace": PACES}
 SUBJECT_EXTRA_KEYS = {"pace_weeks", "hours_per_day", "start_date",
                       # school and college subjects (core/teaching/onboarding.md, round 4)
-                      "board", "syllabus", "exam_units", "exam_date"}
+                      "board", "textbook", "edition", "exam_units", "exam_date"}
+# Boards are categories, never institution names: a university is just "university"
+# (its name goes to learner/private_terms.json).
+BOARDS = ["cbse", "cisce", "nios", "ib", "cambridge", "state-board", "university", "other"]
 ACADEMIC_LEVELS = {"primary", "middle", "secondary", "college", "postgraduate"}
 
 
@@ -300,12 +303,22 @@ def check_subject_answers(catalog, answers):
                 clean[key] = dt.date.fromisoformat(answers[key]).isoformat()
             except (TypeError, ValueError):
                 raise TutorError(f"{key} must be YYYY-MM-DD")
-    for key, limit in (("board", 80), ("syllabus", 120)):
+    if "board" in answers:
+        clean["board"] = check_choice("board", answers["board"], BOARDS)
+    for key, limit in (("textbook", 120), ("edition", 40)):
         if key in answers:
             value = answers[key]
             if not isinstance(value, str) or not value.strip() or len(value) > limit:
                 raise TutorError(f"{key} must be text of at most {limit} characters")
             clean[key] = " ".join(value.split())
+    syllabus = catalog.get("syllabus")
+    if syllabus:
+        # the plan follows the learner's own book: the catalog must be the one built from it
+        for key in ("board", "textbook", "edition"):
+            if key in clean and str(syllabus.get(key, "")).lower() != clean[key].lower():
+                raise TutorError(f"this catalog follows {key} {syllabus.get(key)!r} but the learner's is "
+                                 f"{clean[key]!r}; build a catalog from the learner's own chapter list first "
+                                 "(core/teaching/generating-lessons.md)")
     if "exam_units" in answers:
         units = answers["exam_units"]
         module_ids = [m["id"] for m in catalog["modules"]]
@@ -462,7 +475,8 @@ def plan_subject(subject, answers=None, root=None):
         days = max(0, (dt.date.fromisoformat(deadline) - dt.date.fromisoformat(start)).days)
         available = days * hours_per_day
         fits = total_hours <= available
-        if not fits and any("weightage" in r for r in rows):
+        marking_scheme = (catalog.get("syllabus") or {}).get("marking_scheme")
+        if not fits and marking_scheme and any("weightage" in r for r in rows):
             rows = prioritise(rows, catalog)
             schedule(rows, start, hours_per_day)
             prioritised = True
@@ -480,8 +494,10 @@ def plan_subject(subject, answers=None, root=None):
         "hours_per_day": hours_per_day,
         "pace_weeks": answers.get("pace_weeks", 0),
         "board": answers.get("board"),
-        "syllabus": answers.get("syllabus"),
-        "syllabus_source": catalog.get("syllabus"),
+        "textbook": answers.get("textbook"),
+        "edition": answers.get("edition"),
+        "provisional": bool((catalog.get("syllabus") or {}).get("provisional")),
+        "weightage_source": ((catalog.get("syllabus") or {}).get("marking_scheme") or {}).get("source"),
         "total_hours": total_hours,
         "total_days": total_days,
         "deadline": deadline,
@@ -518,14 +534,19 @@ def render_plan(plan, catalog, answers):
     lines += ["## Your path", "",
               f"{len(plan['modules'])} modules, about {plan['total_hours']:g} hours at "
               f"{plan['hours_per_day']:g} h/day: **{plan['total_days']} days**, target finish **{finish}**."]
-    if plan.get("board") or plan.get("syllabus"):
-        lines.append(f"\nSyllabus: {' / '.join(x for x in (plan.get('board'), plan.get('syllabus')) if x)}.")
+    if plan.get("board") or plan.get("textbook"):
+        book = " ".join(x for x in (plan.get("textbook"), f"({plan['edition']})" if plan.get("edition") else "") if x)
+        lines.append(f"\nSyllabus: {' / '.join(x for x in (plan.get('board', '').upper(), book) if x)}.")
+    if plan.get("provisional"):
+        lines.append("\n> **Provisional plan.** It is not built from your textbook's contents page. "
+                     "Please check the chapters with your teacher; the plan will be rebuilt from your book's list.")
     if plan.get("deadline") and not plan.get("fits"):
         short = plan["total_hours"] - plan["available_hours"]
         lines.append(f"\n> **Not enough time.** This needs about {plan['total_hours']:g} hours; until "
                      f"{plan['deadline']} there are about {plan['available_hours']:g} ({short:g} short). "
-                     + ("Ordered by exam weightage: the highest-mark chapters come first. "
-                        if plan.get("prioritised") else "")
+                     + (f"Ordered by exam weightage from {plan['weightage_source']}: the highest-mark "
+                        "chapters come first. " if plan.get("prioritised") else
+                        "With no official marking scheme, all chapters count as equal and keep the book's order. ")
                      + "More time per day, or fewer extras, would cover everything.")
         late = [r["title"] for r in plan["modules"] if not r.get("before_deadline", True)]
         if late:
@@ -630,14 +651,18 @@ def summary(root=None):
         nxt_text = (f"next: {nxt['title']} ({nxt['id']}, {lesson_state(subject, nxt['id'], root)})"
                     if nxt else "all modules done")
         lines.append(f"Subject {subject}: {done}/{len(plan['modules'])} done, {nxt_text}")
-        if plan.get("board") or plan.get("syllabus"):
-            lines.append(f"  Syllabus: {' / '.join(x for x in (plan.get('board'), plan.get('syllabus')) if x)}"
+        if plan.get("board") or plan.get("textbook"):
+            lines.append(f"  Syllabus: {plan.get('board') or '-'} / {plan.get('textbook') or '-'} "
+                         f"({plan.get('edition') or 'edition?'})"
                          + (f", exam {plan['deadline']}" if plan.get("deadline") else ""))
+        if plan.get("provisional"):
+            lines.append("  PROVISIONAL plan (no contents page from the learner yet): say so; ask for the "
+                         "textbook's chapter list or to check with their teacher, then rebuild.")
         if plan.get("deadline") and not plan.get("fits", True):
             late = [r["id"] for r in plan["modules"] if not r.get("before_deadline", True)]
+            how = "ordered by weightage" if plan.get("prioritised") else "chapters treated as equal (no marking scheme)"
             lines.append(f"  Plan does not fit before {plan['deadline']}: needs {plan['total_hours']:g} h, "
-                         f"{plan['available_hours']:g} h available; ordered by weightage. Won't fit: "
-                         f"{', '.join(late) or '-'}")
+                         f"{plan['available_hours']:g} h available; {how}. Won't fit: {', '.join(late) or '-'}")
     return "\n".join(lines)
 
 

@@ -14,7 +14,7 @@ PROFILE = {"name": "Pinky", "age_band": "13-17", "level": "secondary", "explain_
            "goals": ["Do well in the final exam"], "preferred_styles": ["visual"], "pace": "steady"}
 
 BATCH_1 = {
-    "subject": "class-9-science", "module": "matter", "agent": "claude-code",
+    "subject": "class-9-science-exploration", "module": "chapter-01", "agent": "claude-code",
     "steps": [
         {"step_ref": "b1-s1", "type": "learn", "outcome": "viewed", "seconds": 20},
         {"step_ref": "b1-s2", "type": "choice", "outcome": "incorrect", "attempts": 2, "hints": 1, "seconds": 70},
@@ -30,7 +30,7 @@ BATCH_1 = {
     "model": {"add": {"weak_areas": ["particles"], "what_works": ["everyday examples before the rule"]}},
 }
 BATCH_2 = {
-    "subject": "class-9-science", "module": "matter",
+    "subject": "class-9-science-exploration", "module": "chapter-01",
     "steps": [{"step_ref": "b2-s2", "type": "order", "outcome": "correct"},
               {"step_ref": "b2-s5", "type": "practice", "outcome": "correct", "seconds": 600}],
     "exercises": [{"ref": "melting-ice", "passed": "true"}],
@@ -84,7 +84,7 @@ def test_full_session_is_silent(learner_repo, run_tool):
     assert "start onboarding" in ctx["hookSpecificOutput"]["additionalContext"]
 
     assert_silent(run_tool("learner", "onboard", "--answers", json.dumps(PROFILE)))
-    assert_silent(run_tool("learner", "plan", "class-9-science", "--answers", '{"goal": "exam", "focus": ["physics"]}'))
+    assert_silent(run_tool("learner", "plan", "class-9-science-exploration", "--answers", '{"goal": "exam", "focus": ["practice"]}'))
     assert_silent(run_tool("tutor", "record", "--json", json.dumps(BATCH_1)))
     (root / "my-work" / "matter").mkdir()
     (root / "my-work" / "matter" / "ice-observations.md").write_text("Temperature stayed at 0 °C\n")
@@ -105,10 +105,10 @@ def test_full_session_is_silent(learner_repo, run_tool):
     assert events[0]["agent"] == "claude-code"
     assert not (learner / "sessions" / "current").exists()
 
-    notes = (learner / "subjects" / "class-9-science" / "notes.md").read_text()
+    notes = (learner / "subjects" / "class-9-science-exploration" / "notes.md").read_text()
     assert "What matter is" in notes and "States of matter" in notes
     assert "**For you:** Air is matter too: it has mass." in notes
-    plan = json.loads((learner / "subjects" / "class-9-science" / "plan.json").read_text())
+    plan = json.loads((learner / "subjects" / "class-9-science-exploration" / "plan.json").read_text())
     assert plan["modules"][0]["status"] == "done"
     model = json.loads((learner / "model.json").read_text())
     assert model["strengths"] == ["particles"] and model["weak_areas"] == []
@@ -116,7 +116,7 @@ def test_full_session_is_silent(learner_repo, run_tool):
     assert model["journey_stage"] == "beginner"
     terms = json.loads((learner / "private_terms.json").read_text())["terms"]
     assert "Sunrise Public School" in terms and "Pinky" in terms
-    progress = (learner / "subjects" / "class-9-science" / "progress.md").read_text()
+    progress = (learner / "subjects" / "class-9-science-exploration" / "progress.md").read_text()
     assert "### 2026-11-03 – Matter in our surroundings" in progress
 
     # the learner's work was committed locally, only my-work/ and core/subjects/
@@ -129,20 +129,20 @@ def test_full_session_is_silent(learner_repo, run_tool):
     # the next session starts with private context built from what was recorded
     nxt = hook(run_tool, root, "session-start", {"source": "startup"})
     text = json.loads(nxt.stdout)["hookSpecificOutput"]["additionalContext"]
-    assert "Pinky" in text and "next: Is matter around us pure?" in text and "Never read it out" in text
+    assert "Pinky" in text and "next: Chapter 2 (placeholder title)" in text and "Never read it out" in text
     assert (learner / "agent.txt").read_text().strip() == "claude-code"
 
 
 def test_failures_are_logged_and_retried_next_session(learner_repo, run_tool, learner_tool):
     root = learner_repo
     learner_tool.onboard(PROFILE, root=root)
-    learner_tool.plan_subject("class-9-science", {"goal": "exam"}, root=root)
+    learner_tool.plan_subject("class-9-science-exploration", {"goal": "exam"}, root=root)
     # break the notes file: a directory where notes.md should be
-    notes = root / "learner" / "subjects" / "class-9-science" / "notes.md"
+    notes = root / "learner" / "subjects" / "class-9-science-exploration" / "notes.md"
     notes.mkdir()
 
     assert_silent(run_tool("tutor", "record", "--json", json.dumps(
-        {"subject": "class-9-science", "module": "matter", "batch_done": 1, "notes_extra": "x",
+        {"subject": "class-9-science-exploration", "module": "chapter-01", "batch_done": 1, "notes_extra": "x",
          "steps": [{"step_ref": "b1-s1", "type": "learn", "outcome": "viewed"}]})))
     assert "will retry next session" in (root / "learner" / "tutor.log").read_text()
     pending = [json.loads(line) for line in (root / "learner" / "pending.jsonl").read_text().splitlines()]
@@ -159,10 +159,10 @@ def test_failures_are_logged_and_retried_next_session(learner_repo, run_tool, le
 def test_retries_give_up_after_three_attempts(learner_repo, tutor_tool, learner_tool):
     root = learner_repo
     learner_tool.onboard(PROFILE, root=root)
-    learner_tool.plan_subject("class-9-science", {}, root=root)
-    notes = root / "learner" / "subjects" / "class-9-science" / "notes.md"
+    learner_tool.plan_subject("class-9-science-exploration", {}, root=root)
+    notes = root / "learner" / "subjects" / "class-9-science-exploration" / "notes.md"
     notes.mkdir()  # stays broken
-    tutor_tool.record({"subject": "class-9-science", "module": "matter", "batch_done": 1}, root=root)
+    tutor_tool.record({"subject": "class-9-science-exploration", "module": "chapter-01", "batch_done": 1}, root=root)
     for _ in range(4):
         tutor_tool.retry_pending(root)
     assert not (root / "learner" / "pending.jsonl").exists()
@@ -172,7 +172,7 @@ def test_retries_give_up_after_three_attempts(learner_repo, tutor_tool, learner_
 def test_bad_items_are_skipped_not_fatal(learner_repo, tutor_tool, learner_tool):
     root = learner_repo
     learner_tool.onboard(PROFILE, root=root)
-    tutor_tool.record({"subject": "class-9-science", "module": "matter", "mystery": 1,
+    tutor_tool.record({"subject": "class-9-science-exploration", "module": "chapter-01", "mystery": 1,
                        "steps": [{"step_ref": "b1-s1", "type": "learn", "outcome": "maybe"},
                                  {"step_ref": "b1-s2", "type": "choice", "outcome": "correct"},
                                  {"type": "choice"}]}, root=root)

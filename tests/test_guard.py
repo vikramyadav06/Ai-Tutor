@@ -22,8 +22,8 @@ PAYLOAD = """'{"subject": "x", "notes_extra": "it\\u0027s fine; (really) | ok $(
 @pytest.mark.parametrize("command", [
     "python tools/tutor.py record --json " + PAYLOAD,
     "python3 tools/learner.py show",
-    "python tools/learner.py plan class-9-science --answers '{\"goal\": \"exam\"}'",
-    "python tools/validate.py core/subjects/class-9-science/matter/lesson.json",
+    "python tools/learner.py plan class-9-science-exploration --answers '{\"goal\": \"exam\"}'",
+    "python tools/validate.py core/subjects/class-9-science-exploration/chapter-01/lesson.json",
     "python tools/log_session.py summary --last 5",
     "python tools/tutor.py context",
 ])

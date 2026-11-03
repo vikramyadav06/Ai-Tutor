@@ -28,8 +28,10 @@ STUDENT = {
     "pace": "slow",
     "hours_per_day": 1,
 }
-STUDENT_SCIENCE = {"goal": "exam", "focus": ["physics"], "board": "CBSE", "syllabus": "NCERT Science Class 9",
+STUDENT_SCIENCE = {"goal": "exam", "focus": ["practice"], "board": "cbse",
+                   "textbook": "Exploration (NCERT Science, Class 9)", "edition": "2026-27",
                    "exam_units": "all", "exam_date": "2027-03-01", "start_date": "2026-11-03"}
+SUBJECT = "class-9-science-exploration"  # catalog built from the learner's pasted contents page
 
 
 def read(path):
@@ -80,7 +82,7 @@ def test_adult_learning_python(tutor_root, run_tool):
 
 def test_fourteen_year_old_learning_class_9_science(tutor_root, run_tool):
     run_tool("learner", "onboard", "--answers", json.dumps(STUDENT))
-    run_tool("learner", "plan", "class-9-science", "--answers", json.dumps(STUDENT_SCIENCE))
+    run_tool("learner", "plan", SUBJECT, "--answers", json.dumps(STUDENT_SCIENCE))
     learner = tutor_root / "learner"
 
     profile = read(learner / "profile.json")
@@ -89,21 +91,18 @@ def test_fourteen_year_old_learning_class_9_science(tutor_root, run_tool):
     assert profile["level"] == "secondary"
     assert profile["explain_language"] == "hi"
 
-    plan = read(learner / "subjects" / "class-9-science" / "plan.json")
-    # the whole syllabus, in textbook order, then the chosen extra and revision last
-    assert [(m["id"], m["reason"]) for m in plan["modules"]] == [
-        ("matter", "Core"), ("is-matter-pure", "Core"), ("atoms-and-molecules", "Core"),
-        ("structure-of-the-atom", "Core"), ("the-cell", "Core"), ("tissues", "Core"), ("motion", "Core"),
-        ("force-and-laws", "Core"), ("gravitation", "Core"), ("work-and-energy", "Core"), ("sound", "Core"),
-        ("food-resources", "Core"), ("numericals-practice", "Your choice"), ("exam-revision", "For your goal"),
-    ]
-    assert plan["total_hours"] == 36 and plan["deadline"] == "2027-03-01"
-    assert plan["fits"] is True and plan["prioritised"] is False
-    assert plan["board"] == "CBSE" and plan["syllabus"] == "NCERT Science Class 9"
+    plan = read(learner / "subjects" / SUBJECT / "plan.json")
+    # every chapter of the learner's own book, in its order, then the chosen extra and revision last
+    chapters = [f"chapter-{i:02d}" for i in range(1, 14)]
+    assert [m["id"] for m in plan["modules"]] == chapters + ["extra-practice", "exam-revision"]
+    assert {m["reason"] for m in plan["modules"][:13]} == {"Core"}
+    assert plan["total_hours"] == 39 and plan["deadline"] == "2027-03-01"
+    assert plan["fits"] is True and plan["prioritised"] is False and plan["provisional"] is False
+    assert plan["board"] == "cbse" and plan["edition"] == "2026-27"
     assert all(m["before_deadline"] for m in plan["modules"])
-    matter = plan["modules"][0]
-    assert matter["written"] is True and matter["lesson"] == "core/subjects/class-9-science/matter/lesson.json"
-    assert matter["weightage"] == 5
+    first = plan["modules"][0]
+    assert first["written"] is True and first["lesson"] == f"core/subjects/{SUBJECT}/chapter-01/lesson.json"
+    assert "weightage" not in first  # no official marking scheme given: chapters count as equal
     assert plan["modules"][1]["written"] is False
 
     # student mode: no identity of any kind
@@ -190,37 +189,74 @@ def test_reonboarding_keeps_what_was_learned(tutor_root, learner_tool):
     assert model["weak_areas"] == ["loops"] and model["what_works"] == ["short analogies"]
 
 
-def test_exam_units_and_a_close_exam_prioritise_by_weightage(tutor_root, learner_tool):
+def test_close_exam_without_marking_scheme_keeps_book_order(tutor_root, learner_tool):
     learner_tool.onboard(STUDENT, root=tutor_root)
-    units = ["matter", "atoms-and-molecules", "the-cell", "motion", "force-and-laws", "gravitation"]
-    plan = learner_tool.plan_subject("class-9-science", {
-        "goal": "exam", "focus": ["physics"], "board": "CBSE", "exam_units": units,
+    units = [f"chapter-{i:02d}" for i in range(1, 7)]
+    plan = learner_tool.plan_subject(SUBJECT, {
+        "goal": "exam", "focus": ["practice"], "board": "cbse", "exam_units": units,
         "exam_date": "2026-11-17", "start_date": "2026-11-03"}, root=tutor_root)
     ids = [m["id"] for m in plan["modules"]]
-    # only the exam's chapters (plus extras); chapters outside the exam are left out
-    assert set(ids) == set(units) | {"numericals-practice", "exam-revision"}
-    assert "sound" not in ids and "tissues" not in ids
-    assert plan["fits"] is False and plan["prioritised"] is True
+    # only the exam's chapters (plus extras), in the book's order: no invented weightage
+    assert ids == units + ["extra-practice", "exam-revision"]
+    assert plan["fits"] is False and plan["prioritised"] is False
     assert plan["total_hours"] == 21 and plan["available_hours"] == 14
-    # highest marks first, but a chapter's prerequisites still come before it
-    assert ids == ["the-cell", "matter", "atoms-and-molecules", "motion", "force-and-laws", "gravitation",
-                   "numericals-practice", "exam-revision"]
     late = [m["id"] for m in plan["modules"] if not m["before_deadline"]]
-    assert late == ["gravitation", "numericals-practice", "exam-revision"]
-    text = (tutor_root / "learner" / "subjects" / "class-9-science" / "plan.md").read_text()
-    assert "Not enough time" in text and "Ordered by exam weightage" in text
-    assert "Won't fit before the deadline at this pace: Gravitation" in text
+    assert late == ["chapter-06", "extra-practice", "exam-revision"]
+    text = (tutor_root / "learner" / "subjects" / SUBJECT / "plan.md").read_text()
+    assert "Not enough time" in text and "all chapters count as equal" in text
+
+
+def with_marking_scheme(root):
+    path = root / "core" / "subjects" / SUBJECT / "catalog.json"
+    catalog = json.loads(path.read_text())
+    catalog["syllabus"]["marking_scheme"] = {"source": "official marking scheme provided by the learner (test data)"}
+    for m, marks in zip(catalog["modules"], [4, 4, 6, 6, 10, 10, 5, 5, 6, 6, 4, 4, 10]):
+        m["weightage"] = marks
+    path.write_text(json.dumps(catalog))
+
+
+def test_close_exam_with_official_marking_scheme_prioritises(tutor_root, learner_tool):
+    with_marking_scheme(tutor_root)
+    learner_tool.onboard(STUDENT, root=tutor_root)
+    units = [f"chapter-{i:02d}" for i in range(1, 7)]
+    plan = learner_tool.plan_subject(SUBJECT, {"goal": "exam", "exam_units": units,
+                                               "exam_date": "2026-11-15", "start_date": "2026-11-03"}, root=tutor_root)
+    ids = [m["id"] for m in plan["modules"]]
+    assert plan["prioritised"] is True
+    assert ids == ["chapter-05", "chapter-06", "chapter-03", "chapter-04", "chapter-01", "chapter-02", "exam-revision"]
+    text = (tutor_root / "learner" / "subjects" / SUBJECT / "plan.md").read_text()
+    assert "Ordered by exam weightage from official marking scheme provided by the learner" in text
+
+
+def test_plan_must_follow_the_learners_own_book(tutor_root, learner_tool):
+    learner_tool.onboard(STUDENT, root=tutor_root)
+    with pytest.raises(learner_tool.TutorError, match="build a catalog from the learner's own chapter list"):
+        learner_tool.plan_subject(SUBJECT, {"textbook": "Science for Class IX", "edition": "2019"}, root=tutor_root)
+    with pytest.raises(learner_tool.TutorError, match="board must be one of"):
+        learner_tool.plan_subject(SUBJECT, {"board": "Delhi University"}, root=tutor_root)
+
+
+def test_provisional_plan_says_so(tutor_root, learner_tool):
+    path = tutor_root / "core" / "subjects" / SUBJECT / "catalog.json"
+    catalog = json.loads(path.read_text())
+    catalog["syllabus"]["provisional"] = True
+    path.write_text(json.dumps(catalog))
+    learner_tool.onboard(STUDENT, root=tutor_root)
+    plan = learner_tool.plan_subject(SUBJECT, {"goal": "exam"}, root=tutor_root)
+    assert plan["provisional"] is True
+    assert "Provisional plan" in (tutor_root / "learner" / "subjects" / SUBJECT / "plan.md").read_text()
+    assert "PROVISIONAL plan" in learner_tool.summary(root=tutor_root)
 
 
 def test_whole_syllabus_by_default(tutor_root, learner_tool):
     learner_tool.onboard(STUDENT, root=tutor_root)
-    plan = learner_tool.plan_subject("class-9-science", {"goal": "understand"}, root=tutor_root)
-    assert len(plan["modules"]) == 12 and plan["deadline"] is None and plan["fits"] is True
+    plan = learner_tool.plan_subject(SUBJECT, {"goal": "understand"}, root=tutor_root)
+    assert len(plan["modules"]) == 13 and plan["deadline"] is None and plan["fits"] is True
 
 
 def test_unknown_exam_unit_is_rejected(tutor_root, learner_tool):
     learner_tool.onboard(STUDENT, root=tutor_root)
     with pytest.raises(learner_tool.TutorError, match="add those chapters to the catalog first"):
-        learner_tool.plan_subject("class-9-science", {"exam_units": ["matter", "chapter-99"]}, root=tutor_root)
+        learner_tool.plan_subject(SUBJECT, {"exam_units": ["chapter-01", "chapter-99"]}, root=tutor_root)
     with pytest.raises(learner_tool.TutorError, match="exam_date must be YYYY-MM-DD"):
-        learner_tool.plan_subject("class-9-science", {"exam_date": "March"}, root=tutor_root)
+        learner_tool.plan_subject(SUBJECT, {"exam_date": "March"}, root=tutor_root)

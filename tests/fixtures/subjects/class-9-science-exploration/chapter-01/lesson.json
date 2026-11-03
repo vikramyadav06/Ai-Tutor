@@ -1,11 +1,11 @@
 {
-  "id": "matter",
-  "title": "Matter in our surroundings",
-  "subject": "class-9-science",
+  "id": "chapter-01",
+  "title": "Chapter 1 (placeholder title)",
+  "subject": "class-9-science-exploration",
   "level": "secondary",
   "explain_language": "en",
   "status": "unreviewed",
-  "syllabus": "CBSE / NCERT Science Class 9, Chapter 1",
+  "syllabus": "TEST DATA: CBSE / Exploration (NCERT Science, Class 9), 2026-27, Chapter 1",
   "intro": "Know what matter is, its three common states, and why matter changes state when heated or cooled.",
   "planned_batches": [
     "What matter is",

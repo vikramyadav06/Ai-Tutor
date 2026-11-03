@@ -6,29 +6,29 @@ it, and `tools/validate.py` checks it.
 
 ```json
 {
-  "subject": "class-9-science",
-  "title": "Class 9 Science",
+  "subject": "class-9-science-exploration",
+  "title": "Class 9 Science (Exploration, 2026-27)",
   "levels": ["secondary"],
   "explain_language": "en",
-  "syllabus": {"board": "CBSE", "name": "NCERT Science Class 9"},
+  "syllabus": {"board": "cbse", "textbook": "Exploration", "edition": "2026-27",
+               "source": "learner", "provisional": false},
   "questions": [
     {"id": "goal", "question": "What's your main goal?", "options": [
       {"value": "exam", "label": "Prepare for my exams"},
       {"value": "understand", "label": "Understand the ideas properly"}]},
-    {"id": "focus", "question": "Which parts matter most?", "multi": true, "options": [
-      {"value": "physics", "label": "Physics"}]}
+    {"id": "focus", "question": "Do you want extra practice questions?", "multi": true, "options": [
+      {"value": "practice", "label": "Yes"}]}
   ],
   "modules": [
-    {"id": "matter", "title": "Matter in our surroundings", "hours": 2, "kind": "core", "requires": [], "weightage": 5},
-    {"id": "motion", "title": "Motion", "hours": 3, "kind": "core", "requires": [], "weightage": 5},
-    {"id": "numericals", "title": "Physics numericals", "hours": 2, "kind": "focus", "requires": ["motion"]}
+    {"id": "chapter-01", "title": "<chapter 1 title, as printed>", "chapter": 1, "hours": 2, "kind": "core", "requires": []},
+    {"id": "chapter-02", "title": "<chapter 2 title, as printed>", "chapter": 2, "hours": 3, "kind": "core", "requires": []},
+    {"id": "extra-practice", "title": "Extra practice questions", "hours": 3, "kind": "focus", "requires": []}
   ],
   "focus_areas": {
-    "physics": {"label": "Physics", "modules": ["numericals"]}
+    "practice": {"label": "Extra practice questions", "modules": ["extra-practice"]}
   },
   "rules": [
-    {"when": {"goal": "exam"}, "add_modules": ["revision"], "reason": "For your goal"},
-    {"when": {"prior": "strong"}, "shorten": {"modules": ["matter"], "hours": 1}, "note": "Quick pace"}
+    {"when": {"goal": "exam"}, "add_modules": ["revision"], "reason": "For your goal"}
   ],
   "schedule_last": ["revision"]
 }
@@ -42,18 +42,22 @@ it, and `tools/validate.py` checks it.
 | `focus_areas` | Groups of modules the learner can pick with the `focus` question |
 | `rules[]` | `when`: answers that must all match (a value or a list of allowed values). Then `add_modules`, `add_focus` (with `reason`), and/or `shorten` (cut `hours` from those modules, with `note`) |
 | `schedule_last` | Modules that always go at the end of the plan |
-| `syllabus` | School and college subjects: `board` and `name` of the syllabus or textbook the modules follow. One catalog per syllabus |
-| `weightage` | Exam marks for a chapter (from the official syllabus). Used to put the highest-mark chapters first when time is short |
+| `syllabus` | School and college subjects: `board` (`cbse`, `cisce`, `nios`, `ib`, `cambridge`, `state-board`, `university`, `other`; never an institution's name), `textbook`, `edition`, `source` (`learner`: their contents page; `official`: an official syllabus they gave you), `provisional` (true until the learner has given their chapter list), optional `marking_scheme` (`{"source": ...}`, only if they gave you an official one). One catalog per board, textbook and edition |
+| `chapter` | The chapter number in the learner's book |
+| `weightage` | Exam marks for a chapter, **only** from the official marking scheme in `syllabus.marking_scheme`. Never from memory. Without it, chapters count as equal |
 
-For school and college subjects, **one module = one syllabus chapter or unit**, in the
-syllabus's order and wording, so "which chapters are in your exam" maps straight to module
-ids. Practice and revision modules are `focus` or `optional`. Take `weightage` only from the
-official syllabus; if you can't confirm it, leave it out rather than guess.
+For school and college subjects, **one module = one chapter of the learner's own book**, in
+its order and with its titles, so "which chapters are in your exam" maps straight to module
+ids. Don't invent `requires` between chapters. Practice and revision modules are `focus` or
+`optional`. The validator rejects weightage without a marking scheme, a syllabus `source`
+other than `learner` or `official`, and boards outside the list.
 
-Exam answers (`board`, `syllabus`, `exam_units`, `exam_date`) change the plan: with
+Exam answers (`board`, `textbook`, `edition`, `exam_units`, `exam_date`) change the plan:
+the board, textbook and edition must match the catalog's `syllabus`; with
 `exam_units`, the plan covers exactly those chapters (plus anything they require); with an
-`exam_date` (or `pace_weeks`) that's too close, it reorders by weightage and marks what won't
-fit, so the tutor can tell the learner.
+`exam_date` (or `pace_weeks`) that's too close, it reorders by weightage (only with a marking
+scheme) and marks what won't fit, so the tutor can tell the learner. A provisional catalog
+makes a provisional plan, and the tutor says so.
 
 The plan is: every `core` module (or, if the learner listed their exam chapters, exactly
 those), then the learner's chosen focus areas, then whatever the

@@ -52,6 +52,6 @@ def test_agents_md_keeps_the_learner_in_a_tutoring_conversation():
 
 def test_agents_md_review_rules():
     text = (REPO / "AGENTS.md").read_text(encoding="utf-8")
-    for needle in ("no emojis", "one batch at a time", "board or university", "unreviewed",
-                   "Never guess", "highest-mark chapters first"):
+    for needle in ("no emojis", "one batch at a time", "chapter list from them", "never from memory",
+                   "provisional", "never invent marks", "unreviewed", "Never guess"):
         assert needle in text, needle

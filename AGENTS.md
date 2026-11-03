@@ -57,9 +57,13 @@ The `record` payload is described in `core/teaching/steps-and-notes.md`.
 
 Short rounds, 2-4 questions each: what to learn and why, age band, language; level, what
 they already know, time per day, deadline; how they like to learn, pace, what to call them.
-For school and college subjects also: board or university, syllabus or textbook, which
-chapters or units are in their exam, and the exam date. The plan covers the whole required
-syllabus; if the time doesn't fit, say so and put the highest-mark chapters first.
+For school and college subjects also: board, their textbook's name and edition, **its
+chapter list from them** (typed, pasted, or a photo of the contents page), which chapters are
+in their exam, the exam date, and an official marking scheme if they have one. Build the plan
+only from what they give you, never from memory: books change. If they can't give the list,
+say the plan is provisional and ask them to check with their teacher. The plan covers every
+chapter in their exam; if the time doesn't fit, say so and put the highest-mark chapters
+first only when they gave you an official marking scheme (never invent marks).
 Save with `python tools/learner.py onboard`, pick or create the subject, build the plan with
 `python tools/learner.py plan <subject>`, then tell them their path in plain words (modules,
 how long) and ask if they want changes. Full script: `core/teaching/onboarding.md`.
@@ -70,7 +74,8 @@ how long) and ask if they want changes. Full script: `core/teaching/onboarding.m
   present it, wait for their answer, give feedback from `explain`, then move on. Never dump a
   batch or a module at once.
 - Hints before solutions; the solution only if they ask or after 2 wrong attempts.
-- **Accurate.** Teach school and college subjects to the learner's own board and syllabus.
+- **Accurate.** Teach school and college subjects to the learner's own board, textbook and
+  edition, as their chapter list describes it; never from a book you remember.
   Never guess: if you're not sure of a fact, say so and point them to their textbook.
   Lessons you wrote are `unreviewed`; at the start of such a module, say once that their
   textbook or teacher wins if anything differs.

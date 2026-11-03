@@ -56,19 +56,19 @@ def test_model_cli(onboarded, run_tool):
 
 
 def test_notes_after_batch(onboarded, learner_tool):
-    path = learner_tool.append_notes("class-9-science", "matter", 1, extra="Hot vs cold food smell helped.",
+    path = learner_tool.append_notes("class-9-science-exploration", "chapter-01", 1, extra="Hot vs cold food smell helped.",
                                      root=onboarded)
-    learner_tool.append_notes("class-9-science", "matter", 2, root=onboarded)
+    learner_tool.append_notes("class-9-science-exploration", "chapter-01", 2, root=onboarded)
     text = path.read_text(encoding="utf-8")
-    assert path == onboarded / "learner" / "subjects" / "class-9-science" / "notes.md"
-    assert text.startswith("# Revision notes: class-9-science")
-    assert "## Matter in our surroundings – What matter is" in text
+    assert path == onboarded / "learner" / "subjects" / "class-9-science-exploration" / "notes.md"
+    assert text.startswith("# Revision notes: class-9-science-exploration")
+    assert "## Chapter 1 (placeholder title) – What matter is" in text
     assert "- Matter has mass and takes up space." in text
     assert "**Remember:** Matter = mass + space, made of moving particles." in text
     assert "**For you:** Hot vs cold food smell helped." in text
     assert text.index("What matter is") < text.index("States of matter")
     with pytest.raises(learner_tool.TutorError, match="has 2 batches"):
-        learner_tool.append_notes("class-9-science", "matter", 3, root=onboarded)
+        learner_tool.append_notes("class-9-science-exploration", "chapter-01", 3, root=onboarded)
 
 
 def test_private_terms_deduplicate(onboarded, learner_tool):

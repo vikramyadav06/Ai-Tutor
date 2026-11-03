@@ -14,7 +14,7 @@ file, so every learner gets the same content. Check a lesson with `python tools/
 | `level` | yes | Who it is written for: `primary`, `middle`, `secondary`, `college`, `postgraduate`, `professional`, `self-learner` |
 | `explain_language` | yes | Language of the text, as a BCP-47 tag (`en`, `hi`, `es-MX`) |
 | `status` | yes | `unreviewed` for every lesson a tutor writes. Only the Repo B review sets `reviewed` |
-| `syllabus` | school/college | Board / textbook and chapter it follows: `CBSE / NCERT Science Class 9, Chapter 1` |
+| `syllabus` | school/college | Board, textbook, edition and chapter it follows: `CBSE / Exploration (2026-27), Chapter 1` |
 | `planned_batches` | no | Titles of all the batches the lesson will have, when it is written one batch at a time. The lesson is complete when every planned batch is written |
 | `intro` | yes | One or two sentences: what the learner can do after this module |
 | `batches` | yes | The lesson, see below |
