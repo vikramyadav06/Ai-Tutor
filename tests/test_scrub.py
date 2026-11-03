@@ -170,3 +170,28 @@ def test_scrub_record_reaches_every_string():
 
 def test_version():
     assert scrub.SCRUB_VERSION.split(".")[0] == "1"
+
+
+def test_identifiers_are_never_scrubbed():
+    """System ids in records (uuid4 session ids, learner ids, archive names) must survive: a
+    digit run inside a hex id once passed the card check and broke the record."""
+    import random
+    import uuid
+    rng = random.Random(7)
+    alphabet = "abcdefghjkmnpqrstuvwxyz23456789"
+    for _ in range(5000):
+        sid = str(uuid.UUID(int=rng.getrandbits(128), version=4))
+        lid = "lrn-" + "".join(rng.choice(alphabet) for _ in range(8))
+        hexname = uuid.UUID(int=rng.getrandbits(128)).hex
+        for value in (sid, lid, hexname):
+            out, findings = scrub.scrub_text(value, [])
+            assert out == value and findings == [], value
+    # and the same ids written all-digit where possible
+    for value in ("41234567-8901-4234-8123-456789012345", "12345678-1234-4123-9123-412345678901"):
+        assert scrub.scrub_text(value, [])[0] == value
+
+
+def test_numbers_next_to_words_but_not_in_ids_are_still_caught():
+    for text, secret in (("card:4111111111111111.", "4111111111111111"), ("tel 9876543210,", "9876543210"),
+                         ("(2345 6789 0123)", "2345 6789 0123")):
+        assert secret not in scrub.scrub_text(text, [])[0]
