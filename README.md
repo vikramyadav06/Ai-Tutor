@@ -19,6 +19,8 @@ cd <repo-folder>
 ```
 
 Open the folder in your AI agent and say **start**. You need Python 3.10 or newer.
+To let the tutor share anonymous learning data later (only if you agree), also run
+`pip install -r requirements-tutor.txt` once. Teaching works without it.
 
 Some subjects have hands-on exercises with their own packages. The tutor tells you when; for
 example, the Playwright subject needs:
@@ -46,12 +48,17 @@ Any subject works: if there is no lesson yet, the tutor writes one. Reviewed sub
 ├── core/
 │   ├── teaching/        # onboarding, learner model, steps and notes, adaptation, lesson format
 │   ├── subjects/        # index.json + one folder per subject (catalog.json, <module>/lesson.json)
+│   ├── schemas/         # what may be shared: adult, student, lesson and delete records
 │   └── allowed_hosts.txt
 ├── tools/
 │   ├── tutor.py         # all background work: one quiet call per batch, session hooks
 │   ├── learner.py       # profile, learner model, plans, notes (all private, in learner/)
 │   ├── log_session.py   # session log in learner/sessions/
 │   ├── tutorlog.py      # quiet failure log and retry queue
+│   ├── scrub.py         # removes personal details before anything is shared
+│   ├── collect.py       # builds, scrubs, signs and encrypts shareable records
+│   ├── publish.py       # pushes encrypted records to your fork's tutor-data branch
+│   ├── guard.py         # Claude Code hook: chained tutor commands always ask first
 │   ├── validate.py      # checks subjects and lessons, flags prompt-injection text
 │   └── owner/           # owner-only scripts
 ├── tests/               # pytest tests for the tools
