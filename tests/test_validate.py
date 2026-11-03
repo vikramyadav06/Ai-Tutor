@@ -184,3 +184,37 @@ def test_catalog_checks(validate_tool):
     for expected in ["duplicate module ids", "unknown module 'zzz'", "positive 'hours'", "'kind' must be",
                      "non-empty 'when'", "unknown module 'nope'", "schedule_last names unknown module 'ghost'"]:
         assert expected in text
+
+
+def test_new_lessons_must_carry_a_review_status(validate_tool, lesson):
+    assert lesson["status"] == "unreviewed"
+    del lesson["status"]
+    assert any("missing 'status'" in e for e in check(validate_tool, lesson))
+    lesson["status"] = "approved"
+    assert any("'status' must be" in e for e in check(validate_tool, lesson))
+
+
+def test_one_batch_at_a_time(validate_tool, lesson):
+    """A lesson may be written batch by batch: fewer batches than planned is fine."""
+    lesson["planned_batches"] = ["What matter is", "States of matter", "Changing state"]
+    del lesson["batches"][1]
+    assert check(validate_tool, lesson) == []
+    lesson["planned_batches"] = ["Only one"]
+    lesson["batches"].append(lesson["batches"][0])
+    assert any("2 batches written but only 1 planned" in e for e in check(validate_tool, lesson))
+
+
+@pytest.mark.parametrize("text,bad", [("Great job! \U0001F389", True), ("Nice ✨ work", True),
+                                      ("Heat → faster particles at 100 °C", False)])
+def test_no_emojis_in_lessons(validate_tool, lesson, text, bad):
+    lesson["batches"][0]["steps"][0]["body"] = text
+    assert any("emoji" in e for e in check(validate_tool, lesson)) is bad
+
+
+def test_catalog_weightage_and_syllabus(validate_tool):
+    errors = []
+    catalog = {"subject": "x", "title": "X", "syllabus": {"board": "CBSE"},
+               "modules": [{"id": "a", "title": "A", "hours": 1, "kind": "core", "requires": [], "weightage": 0}]}
+    validate_tool.check_catalog("x", catalog, errors, "catalog")
+    assert any("'weightage' must be a positive number" in e for e in errors)
+    assert any("'syllabus' needs 'board' and 'name'" in e for e in errors)

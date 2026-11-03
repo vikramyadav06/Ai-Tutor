@@ -30,6 +30,9 @@ SLUG = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 LANG = re.compile(r"^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$")
 LEVELS = {"primary", "middle", "secondary", "college", "postgraduate", "professional", "self-learner"}
 KINDS = {"core", "focus", "optional"}
+STATUSES = {"unreviewed", "reviewed"}
+# Emoji and pictographs; lessons stay plain (arrows, degree signs and maths symbols are fine).
+EMOJI = re.compile("[\U0001F000-\U0001FAFF\u2600-\u26FF\u2700-\u27BF\uFE0F]")
 # TECH_SPEC §12: the only command an agent may run from a lesson.
 PRACTICE_COMMAND = re.compile(r"^(python -m )?pytest [\w./ -]+$")
 
@@ -115,9 +118,22 @@ def check_lesson(lesson, errors, *, where, module_id=None, subject_id=None, chec
     if not isinstance(lesson, dict):
         errors.append(f"{where}: lesson must be a JSON object")
         return
-    for key in ("id", "title", "subject", "level", "explain_language", "intro", "batches"):
+    for key in ("id", "title", "subject", "level", "explain_language", "status", "intro", "batches"):
         if not lesson.get(key):
             errors.append(f"{where}: missing '{key}'")
+    if lesson.get("status") and lesson["status"] not in STATUSES:
+        errors.append(f"{where}: 'status' must be 'unreviewed' (new lessons) or 'reviewed' (set in Repo B review)")
+    if "syllabus" in lesson and (not isinstance(lesson["syllabus"], str) or not lesson["syllabus"].strip()):
+        errors.append(f"{where}: 'syllabus' must be text, e.g. 'CBSE / NCERT Science Class 9, Chapter 1'")
+    planned = lesson.get("planned_batches")
+    if planned is not None:
+        if not isinstance(planned, list) or not planned or not all(isinstance(p, str) and p for p in planned):
+            errors.append(f"{where}: 'planned_batches' must be a list of batch titles")
+        elif isinstance(lesson.get("batches"), list) and len(lesson["batches"]) > len(planned):
+            errors.append(f"{where}: {len(lesson['batches'])} batches written but only {len(planned)} planned")
+    for loc, text in iter_strings(lesson):
+        if EMOJI.search(text):
+            errors.append(f"{where} {loc}: contains an emoji; lessons use plain text")
     if lesson.get("id") and not SLUG.match(str(lesson["id"])):
         errors.append(f"{where}: 'id' {lesson['id']!r} is not a slug")
     if module_id and lesson.get("id") != module_id:
@@ -218,6 +234,10 @@ def check_catalog(subject_id, catalog, errors, where):
     for level in catalog.get("levels", []):
         if level not in LEVELS:
             errors.append(f"{where}: unknown level {level!r}")
+    syllabus = catalog.get("syllabus")
+    if syllabus is not None and (not isinstance(syllabus, dict) or not syllabus.get("board") or not syllabus.get("name")):
+        errors.append(f"{where}: 'syllabus' needs 'board' and 'name', e.g. "
+                      '{"board": "CBSE", "name": "NCERT Science Class 9 (2025-26)"}')
     modules = [m for m in catalog.get("modules", []) if isinstance(m, dict)]
     ids = [m.get("id") for m in modules]
     if len(ids) != len(set(ids)):
@@ -230,6 +250,9 @@ def check_catalog(subject_id, catalog, errors, where):
             errors.append(f"{where}: module {mid!r} missing 'title'")
         if not isinstance(m.get("hours"), (int, float)) or m["hours"] <= 0:
             errors.append(f"{where}: module {mid!r} needs positive 'hours'")
+        if "weightage" in m and (isinstance(m["weightage"], bool) or not isinstance(m["weightage"], (int, float))
+                                 or m["weightage"] <= 0):
+            errors.append(f"{where}: module {mid!r} 'weightage' must be a positive number (exam marks)")
         if m.get("kind") not in KINDS:
             errors.append(f"{where}: module {mid!r} 'kind' must be one of {sorted(KINDS)}")
         for req in m.get("requires", []):

@@ -4,6 +4,7 @@
   "subject": "playwright-python",
   "level": "professional",
   "explain_language": "en",
+  "status": "unreviewed",
   "intro": "Understand how Playwright controls browsers, the Browser → Context → Page model, and write and run your first test.",
   "batches": [
     {

@@ -13,6 +13,9 @@ file, so every learner gets the same content. Check a lesson with `python tools/
 | `subject` | yes | Subject id, same as the subject folder name |
 | `level` | yes | Who it is written for: `primary`, `middle`, `secondary`, `college`, `postgraduate`, `professional`, `self-learner` |
 | `explain_language` | yes | Language of the text, as a BCP-47 tag (`en`, `hi`, `es-MX`) |
+| `status` | yes | `unreviewed` for every lesson a tutor writes. Only the Repo B review sets `reviewed` |
+| `syllabus` | school/college | Board / textbook and chapter it follows: `CBSE / NCERT Science Class 9, Chapter 1` |
+| `planned_batches` | no | Titles of all the batches the lesson will have, when it is written one batch at a time. The lesson is complete when every planned batch is written |
 | `intro` | yes | One or two sentences: what the learner can do after this module |
 | `batches` | yes | The lesson, see below |
 | `interview` | no | `[{"q": ..., "a": ...}]`: interview questions (career subjects) |
@@ -54,6 +57,10 @@ file, so every learner gets the same content. Check a lesson with `python tools/
 - Every 1-2 `learn` steps, add a check (`choice`, `fill`, `order` or `explain`).
 - Explain wrong answers kindly in `explain`: say why the right answer is right.
 - Write at the lesson's `level`, in its `explain_language`.
+- **Accurate to the syllabus.** Facts, definitions, values, units and answer keys must match
+  the syllabus and textbook named in `syllabus`. If you can't confirm something, leave it out
+  or say in the text that it should be checked against the textbook. Never guess.
+- **No emojis.** Plain text only (arrows, degree signs and maths symbols are fine).
 - **Generic, always.** Never use a learner's name, examples from their life, their answers,
   their school or company, or anything in `learner/private_terms.json`. Turn a learner's real
   mistake into an anonymous explanation ("A common mistake is ...").

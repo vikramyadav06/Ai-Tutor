@@ -4,6 +4,7 @@
   "subject": "playwright-python",
   "level": "professional",
   "explain_language": "en",
+  "status": "unreviewed",
   "intro": "Get Python, Playwright and the browsers installed, and run your first check that everything works.",
   "batches": [
     {

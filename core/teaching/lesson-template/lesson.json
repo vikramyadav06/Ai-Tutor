@@ -4,26 +4,88 @@
   "subject": "subject-id",
   "level": "self-learner",
   "explain_language": "en",
+  "status": "unreviewed",
+  "syllabus": "Optional, for school and college subjects: board / textbook, chapter (e.g. CBSE / NCERT Science Class 9, Chapter 1)",
   "intro": "One or two sentences: what the learner can do after this module.",
+  "planned_batches": [
+    "Short batch title (4-6 steps, ~15-25 minutes)",
+    "Second batch title",
+    "Third batch title"
+  ],
   "batches": [
     {
       "title": "Short batch title (4-6 steps, ~15-25 minutes)",
       "steps": [
-        {"type": "learn", "title": "One idea per step", "body": "Plain words. **Bold** and `code` work.\n\n- Lists work too", "code": "optional snippet, formula or example"},
-        {"type": "choice", "question": "One question?", "options": ["Wrong", "Right", "Wrong"], "answer": 1, "explain": "Why the right answer is right."},
-        {"type": "fill", "prompt": "Complete the sentence.", "text": "Water boils at ___ °C at sea level.", "answers": [["100"]], "explain": "Use 'text' for words and 'code' for code. Each ___ is one blank; answers[i] lists accepted answers."},
-        {"type": "order", "prompt": "Put these in order.", "items": ["First", "Second", "Third"], "explain": "Items are written in the correct order; the tutor shuffles them."},
-        {"type": "explain", "prompt": "In your own words: why does ice float?", "rubric": ["Ice is less dense than liquid water", "Because its molecules are held further apart"], "explain": "A good answer: ice is less dense than water because ..."},
-        {"type": "practice", "title": "Try it yourself", "body": "A real task. Programming subjects add file, command and solution.", "file": "core/subjects/<subject-id>/module-id/exercises/test_ex01_name.py", "command": "pytest my-work/module-id -v", "solution": "core/subjects/<subject-id>/module-id/solutions/test_ex01_name.py"}
+        {
+          "type": "learn",
+          "title": "One idea per step",
+          "body": "Plain words. **Bold** and `code` work.\n\n- Lists work too",
+          "code": "optional snippet, formula or example"
+        },
+        {
+          "type": "choice",
+          "question": "One question?",
+          "options": [
+            "Wrong",
+            "Right",
+            "Wrong"
+          ],
+          "answer": 1,
+          "explain": "Why the right answer is right."
+        },
+        {
+          "type": "fill",
+          "prompt": "Complete the sentence.",
+          "text": "Water boils at ___ °C at sea level.",
+          "answers": [
+            [
+              "100"
+            ]
+          ],
+          "explain": "Use 'text' for words and 'code' for code. Each ___ is one blank; answers[i] lists accepted answers."
+        },
+        {
+          "type": "order",
+          "prompt": "Put these in order.",
+          "items": [
+            "First",
+            "Second",
+            "Third"
+          ],
+          "explain": "Items are written in the correct order; the tutor shuffles them."
+        },
+        {
+          "type": "explain",
+          "prompt": "In your own words: why does ice float?",
+          "rubric": [
+            "Ice is less dense than liquid water",
+            "Because its molecules are held further apart"
+          ],
+          "explain": "A good answer: ice is less dense than water because ..."
+        },
+        {
+          "type": "practice",
+          "title": "Try it yourself",
+          "body": "A real task. Programming subjects add file, command and solution.",
+          "file": "core/subjects/<subject-id>/module-id/exercises/test_ex01_name.py",
+          "command": "pytest my-work/module-id -v",
+          "solution": "core/subjects/<subject-id>/module-id/solutions/test_ex01_name.py"
+        }
       ],
       "notes": {
-        "points": ["Revision point 1", "Revision point 2"],
+        "points": [
+          "Revision point 1",
+          "Revision point 2"
+        ],
         "code": "optional key snippet, formula or example to remember",
         "remember": "One-line takeaway."
       }
     }
   ],
   "interview": [
-    {"q": "Optional: an interview question on this module?", "a": "A short model answer."}
+    {
+      "q": "Optional: an interview question on this module?",
+      "a": "A short model answer."
+    }
   ]
 }
