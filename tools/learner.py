@@ -184,6 +184,7 @@ def onboard(answers, root=None):
         "explain_language": language,
         "hours_per_day": check_hours(answers.get("hours_per_day", 1)),
         "sharing": False,
+        "sync": True,
         "created": existing.get("created") or today(),
         "subjects": existing.get("subjects", []),
     }
@@ -201,13 +202,14 @@ def onboard(answers, root=None):
     if old_model:  # re-onboarding keeps what was learned about the learner
         for key in ("strengths", "weak_areas", "what_works"):
             model[key] = old_model.get(key, [])
-    for key in ("sharing", "sharing_asked", "sharing_changed", "code_shown", "gh_login_asked"):
+    for key in ("sharing", "sharing_asked", "sharing_changed", "code_shown", "gh_login_asked", "sync"):
         if key in existing:
             profile[key] = existing[key]
     if profile["mode"] == "student":
         # a student has no identity: remove one left from an earlier (adult) answer
         if identity_path(root).exists():
             identity_path(root).unlink()
+        create_sync_secret(root)  # a separate random code, only for sync
     write_json(learner_dir(root) / "profile.json", profile)
     write_json(learner_dir(root) / "model.json", model)
     if profile["mode"] == "adult":
@@ -327,26 +329,118 @@ def learner_code(root=None):
     return f"{identity['learner_id']}.{base64.b32encode(seed).decode().rstrip('=')}"
 
 
-def restore_identity(code, root=None):
-    """Recreate .tutor/identity.json from a learner code typed on another device."""
+SYNC_CODE = re.compile(r"^sync-[A-Z2-7]{52}$")
+SYNC_WARNING = ("Keep this private, like a password. It lets you continue on another device. "
+                "It is only for that and is never sent anywhere.")
+
+
+def sync_secret_path(root=None):
+    return tutor_dir(root) / "sync.json"
+
+
+def create_sync_secret(root=None):
+    """A student's random sync secret (students have no learner id). Only for sync."""
+    import base64
+    import secrets
+    existing = read_json(sync_secret_path(root))
+    if existing:
+        return existing
+    data = {"sync_secret_b64": base64.b64encode(secrets.token_bytes(32)).decode(), "created": today()}
+    write_private_json(sync_secret_path(root), data)
+    return data
+
+
+def any_code(root=None):
+    """The code to show once: the adult's learner code, or the student's sync code."""
+    import base64
+    if read_json(identity_path(root)):
+        return learner_code(root), CODE_WARNING
+    data = read_json(sync_secret_path(root))
+    if data:
+        secret = base64.b64decode(data["sync_secret_b64"])
+        return "sync-" + base64.b32encode(secret).decode().rstrip("="), SYNC_WARNING
+    raise TutorError("no code on this device yet")
+
+
+def _parse_code(code):
+    """(kind, 32-byte secret, learner_id or None) from a learner code or a sync code."""
     import base64
     code = "".join(str(code).split())
+    if code.lower().startswith("sync-"):
+        body = code[5:].upper()
+        if not SYNC_CODE.match("sync-" + body):
+            raise TutorError("that doesn't look like a code from this tutor")
+        return "student", base64.b32decode(body + "=" * (-len(body) % 8)), None
     learner_id, _, secret = code.partition(".")
     if not LEARNER_ID.match(learner_id) or not secret:
-        raise TutorError("that doesn't look like a learner code")
+        raise TutorError("that doesn't look like a code from this tutor")
     try:
         seed = base64.b32decode(secret.upper() + "=" * (-len(secret) % 8))
     except (ValueError, base64.binascii.Error):
-        raise TutorError("that doesn't look like a learner code")
+        raise TutorError("that doesn't look like a code from this tutor")
     if len(seed) != 32:
-        raise TutorError("that doesn't look like a learner code")
+        raise TutorError("that doesn't look like a code from this tutor")
+    return "adult", seed, learner_id
+
+
+def restore_identity(code, root=None):
+    """Recreate .tutor/identity.json from a learner code, without syncing (kept for tools)."""
+    import base64
+    kind, seed, learner_id = _parse_code(code)
+    if kind != "adult":
+        raise TutorError("that is a sync code, not a learner code")
     identity = {"learner_id": learner_id, "signing_seed_b64": base64.b64encode(seed).decode(), "created": today()}
     write_private_json(identity_path(root), identity)
-    profile = read_json(learner_dir(root) / "profile.json")
-    if profile is not None:
-        profile["code_shown"] = True  # they already have it
-        write_json(learner_dir(root) / "profile.json", profile)
     return identity
+
+
+def restore(code, root=None, gh=None):
+    """A learner who learned on another device enters their code: save it, then bring
+    everything over from their tutor-sync branch. A wrong code changes nothing."""
+    import base64
+    root = Path(root or ROOT)
+    kind, secret, learner_id = _parse_code(code)
+    if missing_packages():
+        raise TutorError(f"needs packages {', '.join(missing_packages())}: ask the learner in this same moment "
+                         "whether you may install them (install-sharing-packages), then run restore again")
+    import sync
+    files = (identity_path(root), sync_secret_path(root), sync._state_path(root))
+    backup = {f: f.read_bytes() if f.exists() else None for f in files}
+
+    def roll_back():
+        for f, data in backup.items():
+            if data is None:
+                f.unlink(missing_ok=True)
+            else:
+                write_private_json(f, json.loads(data))
+
+    if kind == "adult":
+        write_private_json(identity_path(root), {"learner_id": learner_id, "created": today(),
+                                                 "signing_seed_b64": base64.b64encode(secret).decode()})
+    else:
+        write_private_json(sync_secret_path(root), {"sync_secret_b64": base64.b64encode(secret).decode(),
+                                                    "created": today()})
+    try:
+        result = sync.pull(root, gh=gh, secret=secret)
+    except Exception:
+        roll_back()
+        raise
+    if result == "needs-gh-auth":
+        # keep the code: the next session start retries once gh is signed in
+        raise TutorError("needs-gh-auth: ask the learner (once) to run `gh auth login`, then start again")
+    if result == "no-git":
+        roll_back()
+        raise TutorError("this copy of the tutor isn't a git clone, so progress can't be brought over; "
+                         "the learner can clone their fork and try again, or start fresh here")
+    if result == "wrong-key":
+        roll_back()
+        raise TutorError("that code doesn't match any saved progress; check it and try again")
+    if not result.startswith("merged:"):
+        roll_back()
+        raise TutorError("no saved progress was found for that code")
+    if (learner_dir(root) / "profile.json").exists():
+        set_profile_flag("code_shown", True, root)  # they already have it
+    return result
 
 
 def set_profile_flag(key, value, root=None):
@@ -755,6 +849,121 @@ def set_progress(subject, module, status, root=None):
     return plan
 
 
+def _norm_title(title):
+    return " ".join(re.sub(r"[^a-z0-9 ]+", " ", str(title).lower()).split())
+
+
+def mark_batch_done(subject, module, batch, root=None):
+    """Remember which batches of a module are done (by title, so progress survives a lesson
+    being replaced by a reviewed version)."""
+    folder = subject_dir(subject, root)
+    plan = read_json(folder / "plan.json")
+    lesson = read_json(Path(root or ROOT) / "core" / "subjects" / subject / module / "lesson.json")
+    if plan is None or lesson is None:
+        return None
+    batches = lesson.get("batches", [])
+    if not 1 <= batch <= len(batches):
+        raise TutorError(f"{module} has {len(batches)} batches; got batch {batch}")
+    title = batches[batch - 1].get("title", f"batch {batch}")
+    for row in plan["modules"]:
+        if row["id"] == module:
+            done = row.setdefault("batches_done", [])
+            if title not in done:
+                done.append(title)
+            if row.get("status") == "not-started":
+                row["status"] = "in-progress"
+            break
+    else:
+        return None
+    plan["updated"] = today()
+    write_json(folder / "plan.json", plan)
+    return plan
+
+
+def map_batches(done_titles, old_lesson, new_lesson):
+    """Which batches of a new (reviewed) lesson count as done, given the batches done in the
+    old one. Same or similar titles carry over; otherwise the same share of the chapter, rounded
+    down, so nothing new is skipped."""
+    import difflib
+    import math
+    old_titles = [b.get("title", "") for b in old_lesson.get("batches", [])]
+    new_titles = [b.get("title", "") for b in new_lesson.get("batches", [])]
+    planned = old_lesson.get("planned_batches") or old_titles
+    if not new_titles:
+        return []
+    done_norm = [_norm_title(t) for t in done_titles]
+    new_norm = [_norm_title(t) for t in new_titles]
+    matched = set()
+    for d in done_norm:
+        if d in new_norm:
+            matched.add(new_norm.index(d))
+            continue
+        best = difflib.get_close_matches(d, [n for i, n in enumerate(new_norm) if i not in matched], n=1, cutoff=0.75)
+        if best:
+            matched.add(new_norm.index(best[0]))
+    share = len(done_titles) / max(len(planned), 1)
+    by_share = math.floor(share * len(new_titles) + 1e-9)
+    count = max(len(matched), by_share)
+    keep = sorted(matched)
+    for i in range(len(new_titles)):  # fill from the start of the chapter
+        if len(keep) >= count:
+            break
+        if i not in keep:
+            keep.append(i)
+    return [new_titles[i] for i in sorted(keep)]
+
+
+def _syllabus_key(catalog):
+    s = catalog.get("syllabus") or {}
+    if not s.get("board") or not s.get("textbook") or not s.get("edition"):
+        return None
+    return (s["board"].lower(), " ".join(s["textbook"].lower().split()), s["edition"].lower().strip())
+
+
+def find_reviewed_lesson(subject, module, root=None):
+    """A reviewed lesson for the same chapter: this subject's own, or one in another subject
+    built from the same board, textbook and edition with the same chapter number."""
+    base = Path(root or ROOT) / "core" / "subjects"
+    own = read_json(base / subject / module / "lesson.json")
+    if own and own.get("status") == "reviewed":
+        return base / subject / module
+    catalog = read_json(base / subject / "catalog.json") or {}
+    key = _syllabus_key(catalog)
+    chapter = next((m.get("chapter") for m in catalog.get("modules", []) if m.get("id") == module), None)
+    if key is None or chapter is None:
+        return None
+    for other in sorted(base.glob("*/catalog.json")):
+        if other.parent.name == subject:
+            continue
+        theirs = read_json(other) or {}
+        if _syllabus_key(theirs) != key or (theirs.get("syllabus") or {}).get("provisional"):
+            continue
+        for m in theirs.get("modules", []):
+            lesson = read_json(other.parent / m["id"] / "lesson.json")
+            if m.get("chapter") == chapter and lesson and lesson.get("status") == "reviewed":
+                return other.parent / m["id"]
+    return None
+
+
+def reuse_lesson(subject, module, root=None):
+    """Use a reviewed lesson instead of writing one. Returns the source folder or None."""
+    import shutil
+    source = find_reviewed_lesson(subject, module, root)
+    if source is None:
+        return None
+    target = Path(root or ROOT) / "core" / "subjects" / subject / module
+    if source.resolve() == target.resolve():
+        return source
+    target.mkdir(parents=True, exist_ok=True)
+    lesson = read_json(source / "lesson.json")
+    lesson.update(id=module, subject=subject)  # same chapter, filed under the learner's subject
+    write_json(target / "lesson.json", lesson)
+    for sub in ("exercises", "solutions"):
+        if (source / sub).is_dir():
+            shutil.copytree(source / sub, target / sub, dirs_exist_ok=True)
+    return source
+
+
 def next_module(plan):
     for status in ("in-progress", "not-started"):
         for row in plan["modules"]:
@@ -791,13 +1000,18 @@ def append_notes(subject, module, batch, extra=None, root=None):
     return out
 
 
-def lesson_state(subject, module, root=None):
+def lesson_state(subject, module, root=None, done=()):
     lesson = read_json(Path(root or ROOT) / "core" / "subjects" / subject / module / "lesson.json")
     if lesson is None:
         return "not written yet"
     written, planned = len(lesson.get("batches", [])), len(lesson.get("planned_batches") or [])
     state = f"{written}/{planned} batches written" if planned and written < planned else "written"
-    return state + (", unreviewed" if lesson.get("status") != "reviewed" else "")
+    state += ", unreviewed" if lesson.get("status") != "reviewed" else ", reviewed"
+    titles = [b.get("title", "") for b in lesson.get("batches", [])]
+    remaining = [i for i, t in enumerate(titles, 1) if t not in set(done)]
+    if done and remaining:
+        state += f"; resume at batch {remaining[0]} of {len(titles)} \"{titles[remaining[0] - 1]}\""
+    return state
 
 
 def summary(root=None):
@@ -823,7 +1037,8 @@ def summary(root=None):
             continue
         done = sum(r["status"] == "done" for r in plan["modules"])
         nxt = next_module(plan)
-        nxt_text = (f"next: {nxt['title']} ({nxt['id']}, {lesson_state(subject, nxt['id'], root)})"
+        nxt_text = (f"next: {nxt['title']} ({nxt['id']}, "
+                    f"{lesson_state(subject, nxt['id'], root, nxt.get('batches_done', []))})"
                     if nxt else "all modules done")
         lines.append(f"Subject {subject}: {done}/{len(plan['modules'])} done, {nxt_text}")
         if plan.get("board") or plan.get("textbook"):
@@ -877,14 +1092,20 @@ def main(argv=None):
     p = sub.add_parser("add-term", help="remember a personal term so it never leaves this machine")
     p.add_argument("term")
     sub.add_parser("init", help="create the adult learner id and signing key (done by onboard)")
-    sub.add_parser("code", help="print the learner code, to show the learner once")
-    p = sub.add_parser("restore", help="recreate the identity from a learner code")
+    sub.add_parser("code", help="print the learner code (adults) or sync code (students), to show once")
+    p = sub.add_parser("sync", help="turn multi-device sync on or off")
+    p.add_argument("state", choices=["on", "off"])
+    p = sub.add_parser("restore", help="continue from another device: a learner code or a sync code")
     p.add_argument("learner_code")
     p = sub.add_parser("sharing", help="the learner's answer to the consent question")
     p.add_argument("state", choices=["on", "off"])
     sub.add_parser("mode", help="print adult or student")
     sub.add_parser("consent-sample", help="print the example record to show with the consent question")
     sub.add_parser("sharing-check", help="print the packages sharing still needs (nothing if ready)")
+    p = sub.add_parser("reuse-lesson", help="use a reviewed lesson for this chapter if one exists "
+                                            "(prints its folder, or nothing if you must write one)")
+    p.add_argument("subject")
+    p.add_argument("module")
     sub.add_parser("install-sharing-packages", help="install them into .tutor/pylib (after the learner agrees)")
     sub.add_parser("show", help="summary for the start of a session")
     args = parser.parse_args(argv)
@@ -910,11 +1131,13 @@ def main(argv=None):
         elif args.cmd == "init":
             init_identity()
         elif args.cmd == "code":
-            code = learner_code()
+            code, warning = any_code()
             set_profile_flag("code_shown", True)
-            print(f"{code}\n{CODE_WARNING}")
+            print(f"{code}\n{warning}")
         elif args.cmd == "restore":
-            restore_identity(args.learner_code)
+            restore(args.learner_code)
+        elif args.cmd == "sync":
+            set_profile_flag("sync", args.state == "on")
         elif args.cmd == "sharing":
             set_sharing(args.state == "on")
         elif args.cmd == "mode":
@@ -923,6 +1146,10 @@ def main(argv=None):
             missing = missing_packages()
             if missing:
                 print(" ".join(missing))
+        elif args.cmd == "reuse-lesson":
+            source = reuse_lesson(args.subject, args.module)
+            if source:
+                print(Path(source).relative_to(ROOT).as_posix())
         elif args.cmd == "install-sharing-packages":
             install_packages()
         elif args.cmd == "consent-sample":

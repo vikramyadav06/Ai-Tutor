@@ -1,0 +1,16 @@
+# Release signing keys trusted by learners' tutors (TECH_SPEC §17).
+#
+# Learners only update to release tags (vYYYY.MM.DD or vYYYY.MM.DD.N) signed by a key listed
+# here. Their tutor verifies each release against THIS file as it is in their current copy,
+# never against the copy inside the release being checked. A change to this file is accepted
+# only through a release signed by a key that is already trusted.
+#
+# Until a key line is added below, no learner receives any course update.
+#
+# Format, one line per key (public keys only, never a private key):
+#   <name> namespaces="git" ssh-ed25519 AAAA...
+# e.g.
+#   vikram-release namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA...
+#
+# Owner: add your release key's public line here by pull request (docs/OWNER_CHECKLIST.md,
+# "Releases and signing").

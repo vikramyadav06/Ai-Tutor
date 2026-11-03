@@ -1,0 +1,12 @@
+# Changes to these paths need the owner's review (the ruleset on main must require
+# code-owner review: docs/OWNER_CHECKLIST.md). They decide what runs on learners' machines,
+# what is shared, and whom learners' tutors trust.
+/tools/                  @vikramwebgarh
+/.claude/                @vikramwebgarh
+/AGENTS.md               @vikramwebgarh
+/CLAUDE.md               @vikramwebgarh
+/project.json            @vikramwebgarh
+/requirements-*.txt      @vikramwebgarh
+/core/schemas/           @vikramwebgarh
+/docs/allowed_signers    @vikramwebgarh
+/.github/                @vikramwebgarh

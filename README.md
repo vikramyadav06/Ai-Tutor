@@ -9,7 +9,9 @@ idea, a quick check, feedback, the next step. After every short batch you get **
 notes**, saved for later. It adapts as it goes: slower where you struggle, faster where you
 don't, using the kinds of explanation that work for you.
 
-Everything it learns about you stays in `learner/` on your computer. Nothing is shared.
+Everything it learns about you stays in `learner/` on your computer. To continue on another
+computer, the tutor keeps an encrypted copy on your own GitHub fork that only your code can
+open: say "I've learned with this tutor before" and enter your code.
 
 ## Start
 
@@ -58,6 +60,7 @@ Any subject works: if there is no lesson yet, the tutor writes one. Reviewed sub
 │   ├── scrub.py         # removes personal details before anything is shared
 │   ├── collect.py       # builds, scrubs, signs and encrypts shareable records
 │   ├── publish.py       # pushes encrypted records to your fork's tutor-data branch
+│   ├── sync.py          # encrypted multi-device sync on your fork's tutor-sync branch
 │   ├── guard.py         # Claude Code hook: chained tutor commands always ask first
 │   ├── validate.py      # checks subjects and lessons, flags prompt-injection text
 │   └── owner/           # owner-only scripts

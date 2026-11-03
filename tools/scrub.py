@@ -14,7 +14,7 @@ import re
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
-SCRUB_VERSION = "1.0"
+SCRUB_VERSION = "1.1"
 REMOVED = "[removed]"
 FREE_TEXT_FIELDS = {"answer_text", "note", "comment", "goals", "what_works"}
 MAX_CAPITALISED_PAIRS = 3
@@ -35,10 +35,12 @@ SECRETS = [
 ]
 URL = re.compile(r"\b[a-zA-Z][a-zA-Z0-9+.-]{1,15}://[^\s\"'<>)\]]+")
 EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}")
-CARD = re.compile(r"(?<![\d-])(?:\d[ -]?){12,18}\d(?![\d-])")
-AADHAAR = re.compile(r"\b\d{4}\s?\d{4}\s?\d{4}\b")
+# Number detectors never start or end next to a letter, digit or hyphen, so identifiers such as
+# UUIDs and learner ids (hex/alphanumeric runs) are never mistaken for cards, phones or Aadhaar.
+CARD = re.compile(r"(?<![\w-])(?:\d[ -]?){12,18}\d(?![\w-])")
+AADHAAR = re.compile(r"(?<![\w-])\d{4}\s?\d{4}\s?\d{4}(?![\w-])")
 PHONE_INTL = re.compile(r"(?<![\w+])\+\d(?:[\s().-]{0,2}\d){9,14}(?!\d)")
-PHONE_IN = re.compile(r"(?<![\d+])(?:(?:91|0)[\s-]?)?[6-9]\d{4}[\s-]?\d{5}(?!\d)")
+PHONE_IN = re.compile(r"(?<![\w+-])(?:(?:91|0)[\s-]?)?[6-9]\d{4}[\s-]?\d{5}(?![\w-])")
 PAN = re.compile(r"\b[A-Z]{5}\d{4}[A-Z]\b")
 _OCTET = r"(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)"
 IPV4 = re.compile(rf"(?<![\d.]){_OCTET}(?:\.{_OCTET}){{3}}(?![\d.])")

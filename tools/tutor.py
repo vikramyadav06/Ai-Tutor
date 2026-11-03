@@ -46,7 +46,7 @@ KNOWN_KEYS = {"subject", "module", "agent", "session_id", "steps", "moves", "sig
               "private_terms", "batch_done", "notes_extra", "module_done", "model", "progress_entry",
               "feedback", "end",
               # the three allowed interruptions, recorded once each (TECH_SPEC §15)
-              "sharing", "code_shown", "gh_login_asked",
+              "sharing", "code_shown", "gh_login_asked", "sync",
               # the learner asked to delete their shared data (adults)
               "delete_request"}
 EXPECTED = (learner.TutorError, log_session.LogError, KeyError, TypeError, ValueError)
@@ -91,6 +91,9 @@ def record(payload, root=None):
         attempt("private_terms", term, lambda t=term: learner.add_private_term(t, root))
     if "sharing" in payload:
         attempt("sharing", payload["sharing"], lambda: learner.set_sharing(bool(payload["sharing"]), root), many=False)
+    if "sync" in payload:
+        attempt("sync", payload["sync"], lambda: learner.set_profile_flag("sync", bool(payload["sync"]), root),
+                many=False)
     for flag in ("code_shown", "gh_login_asked"):
         if payload.get(flag):
             attempt(flag, True, lambda f=flag: learner.set_profile_flag(f, True, root), many=False)
@@ -140,6 +143,8 @@ def record(payload, root=None):
                    many=False) and sid:
             attempt("batch_event", n, lambda: log_session.batch(module, n, session_id=sid, root=root), many=False)
             failed.pop("batch_event", None)  # the notes are saved; the log line is not worth a retry
+            attempt("batch_progress", n, lambda: learner.mark_batch_done(subject, module, n, root), many=False)
+            failed.pop("batch_progress", None)
         if "batch_done" in failed and payload.get("notes_extra"):
             failed["notes_extra"] = payload["notes_extra"]
 
@@ -235,6 +240,37 @@ def finish(root=None, session_id=None):
         tutorlog.log(root, "finish", f"could not close the session log: {exc!r}")
     commit_work(root)
     share(root)
+    sync_step(root, "push")
+
+
+def update_step(root):
+    """Bring the course up to date from upstream. Never raises; retried next session."""
+    try:
+        import update
+        result = update.update(root)
+    except Exception as exc:
+        tutorlog.log(root, "update", f"failed, will retry next session: {exc!r}")
+        return None
+    if result.startswith(("busy", "partial")):
+        tutorlog.log(root, "update", result)
+    return result
+
+
+def sync_step(root, action):
+    """Pull or push the learner's encrypted sync archive. Never raises; retried next session."""
+    try:
+        import sync
+    except ImportError as exc:  # pynacl not installed yet
+        tutorlog.log(root, "sync", f"sync unavailable: {exc}")
+        return None
+    try:
+        result = sync.pull(root) if action == "pull" else sync.push(root)
+    except Exception as exc:
+        tutorlog.log(root, "sync", f"{action} failed, will retry next session: {exc!r}")
+        return None
+    if result in ("wrong-key",):
+        tutorlog.log(root, "sync", f"{action}: archives on tutor-sync don't open with this device's code")
+    return result
 
 
 def share(root):
@@ -342,11 +378,14 @@ def interruptions_due(root):
                    "(core/teaching/onboarding.md, Consent). First run `python tools/learner.py sharing-check`: "
                    "if it lists packages, ask in the same moment whether you may install them. "
                    "Record the answer as \"sharing\" in record.")
-    if (enabled and profile.get("sharing") and profile.get("mode") == "adult" and not profile.get("code_shown")
-            and (Path(root) / ".tutor" / "identity.json").exists()):
-        out.append("Due once: show the learner code (`python tools/learner.py code`) with its warning.")
-    if (enabled and profile.get("sharing") and not profile.get("gh_login_asked")
-            and (Path(root) / ".tutor" / "needs_gh_auth").exists()):
+    if profile and not profile.get("code_shown") and profile.get("sync", True) is not False:
+        out.append("Due once, at the end of onboarding or the next natural pause: the code moment "
+                   "(core/teaching/onboarding.md, Your code). If `python tools/learner.py sharing-check` lists "
+                   "packages, ask in the same moment whether you may install them; if not, record \"sync\": false "
+                   "and show nothing. Otherwise show `python tools/learner.py code` with its warning and record "
+                   "\"code_shown\": true.")
+    if (not profile.get("gh_login_asked") and (Path(root) / ".tutor" / "needs_gh_auth").exists()
+            and (profile.get("sync", True) is not False or profile.get("sharing"))):
         out.append("Due once, at the end of a batch: say \"To share your sessions, run `gh auth login` "
                    "when convenient.\" Record \"gh_login_asked\": true. Never ask again.")
     return out
@@ -355,12 +394,17 @@ def interruptions_due(root):
 def session_start(event, root=None):
     root = Path(root or ROOT)
     source = (event or {}).get("source", "startup")
+    if not has_learner(root) and source in ("startup", "clear") and (
+            learner.identity_path(root).exists() or learner.sync_secret_path(root).exists()):
+        sync_step(root, "pull")  # a code was entered earlier but the progress couldn't come over yet
     if has_learner(root):
         try:
             (root / "learner" / "agent.txt").write_text("claude-code\n", encoding="utf-8")
         except OSError:
             pass
         if source in ("startup", "clear"):
+            update_step(root)        # newly reviewed lessons and tutor rules from upstream main
+            sync_step(root, "pull")  # another device's progress, so the greeting is current
             profile = learner.read_json(root / "learner" / "profile.json", {})
             if profile.get("mode") == "adult" and not learner.identity_path(root).exists():
                 try:

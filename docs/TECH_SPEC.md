@@ -49,6 +49,8 @@ tools/
   log_session.py               # append events to learner/sessions/<session>.jsonl
   tutor.py                     # one quiet record call per batch; session hooks (§15)
   tutorlog.py                  # failures → learner/tutor.log, retry queue (§15)
+  sync.py                      # encrypted multi-device sync on tutor-sync (§16)
+  update.py                    # course updates from upstream main at session start (§17)
   collect.py                   # build record → scrub → sign → encrypt → outbox
   publish.py                   # commit outbox to tutor-data branch and push
   scrub.py                     # PII scrubber (byte-identical copy lives in Repo B)
@@ -268,6 +270,8 @@ Workflow `.github/workflows/ingest.yml`, `schedule: cron "17 * * * *"` plus `wor
 
 1. **Discover:** `GET /repos/vikramwebgarh/Ai-Tutor/forks?per_page=100` (paginate) with the default
    `GITHUB_TOKEN`. For each fork: `git ls-remote https://github.com/<fork>.git refs/heads/tutor-data`.
+   Ingest reads `refs/heads/tutor-data` only and must never fetch `tutor-sync` (the learner's
+   private multi-device archive, §16) or any other branch.
 2. **Skip unchanged:** compare with `ingest/state.json` (`fork_id → last ingested commit`).
    `state.json` stores numeric fork ids and commits only, never usernames, and never which record
    came from which fork.
@@ -343,7 +347,11 @@ Every phase ends with `pytest` green and these checks passing:
   `publish.py` against a local bare repo produces an orphan branch with only `.bin` files, neutral
   author, day-rounded dates, and never pushes `main`.
 - **Phase 3:** an end-to-end test with three fake forks (valid adult, valid student, malicious:
-  wrong signature, oversized, bad path, injected lesson text) files each correctly.
+  wrong signature, oversized, bad path, injected lesson text) files each correctly, and a test
+  that ingest ignores `tutor-sync`: a fork with only a `tutor-sync` branch (and one with both
+  branches) yields nothing from tutor-sync, and no git command fetches it.
+- **Phase 2.5:** two simulated devices (A, then B, then A) lose no data; a wrong code fails
+  safely; a tampered archive is rejected; nothing on `tutor-sync` is readable.
 
 Stop after each phase, summarise for the owner, list any owner steps, and wait for approval.
 
@@ -367,8 +375,10 @@ interrupts teaching.
   `python tools/tutor.py record` call at the end of each batch, never between steps;
   `"end": true` in the session's last call.
 - **AGENTS.md:** never mention logs, files, commits, schemas or data while teaching. The only
-  allowed interruptions, each at most once: the consent question (§9), showing an adult their
-  learner code (§4), and one `gh auth login` request (§8).
+  allowed interruptions, each at most once: the consent question (§9), the code moment (showing
+  an adult their learner code, or a student their sync code, §4 and §16, with the request to
+  install the pinned packages in the same moment if they're missing), and one `gh auth login`
+  request (§8, also used by sync).
 - **Tools print nothing on success** (except query commands whose output goes only to the
   agent: `tutor.py context`, the session-start hook, `learner.py show`, `log_session.py
   summary`, and `validate.py` problem lists). On failure they write one line to
@@ -378,3 +388,97 @@ interrupts teaching.
 - **Hooks never act in a developer checkout:** no `learner/profile.json` → no commits.
 - **Test:** `tests/test_quiet_session.py` simulates a full session and asserts every
   bookkeeping call writes nothing to stdout or stderr.
+
+## 16. Multi-device sync (Phase 2.5, owner requirement)
+
+A learner continues on another device without losing anything. `tools/sync.py`, run by the
+hooks: **pull and merge at session start** (`startup`, `clear`), **push at session end**, plus
+`learner.py restore <code>` on a new device. Same silence rules as §15; failures go to
+`learner/tutor.log` and are retried next session; teaching never waits for sync.
+
+- **What syncs:** `learner/` (except device-local `tutor.log`, `pending.jsonl`, `agent.txt`,
+  `sessions/current`), `my-work/`, files under `core/subjects/` the tutor wrote here (same
+  `written_here` rule as lessons), and the union of `.tutor/collected.json` so no device shares a
+  session twice. **Never** `.tutor/outbox`, the identity, the sync secret, or upstream course files.
+  Files over 1 MB are skipped (logged); archives are capped at 8 MB.
+- **Keys:** `nacl.secret.SecretBox` with key = BLAKE2b(key = secret, personalisation =
+  `tutor-sync-v1`, 32 bytes). Adults: secret = the learner-code seed. Students: a separate random
+  32-byte secret created at onboarding (`.tutor/sync.json`, 0600), shown once as the **sync
+  code** `sync-<base32>`, used only for sync and never sent anywhere.
+- **Code moment:** at the end of onboarding, every learner is shown their code once (adults:
+  learner code; students: sync code). If pynacl is missing, the tutor asks in the same moment
+  whether it may install the pinned packages (§1); if not, sync is off and no code is shown.
+- **Transport:** one encrypted archive per sync (zlib-compressed JSON snapshot) at
+  `<YYYY-MM-DD>/<uuid hex>.bin` on the orphan branch **`tutor-sync`** of the learner's own fork,
+  built in `.tutor/sync-worktree`, neutral author `tutor <tutor@invalid>`, day-rounded dates,
+  pushing only `refs/heads/tutor-sync`. Skipped when nothing changed since the last push. Uses
+  the same fork and the same single `gh auth login` request as publishing; no new interruption.
+- **Merge rules (never lose data):** session logs (`learner/sessions/*.jsonl`) are combined line
+  by line in time order; `private_terms.json` is a union; `notes.md` and `progress.md` keep every
+  section from both devices, ordered by date; `plan.json` takes the newer file with each
+  module's furthest status; every other file: newest (by modification time) wins and the other
+  copy is kept under `learner/history/<stamp>-<side>/`. Nothing is deleted by sync. Paths in an
+  archive outside `learner/`, `my-work/` and `core/subjects/` are ignored.
+- **New device:** onboarding first asks, once, "Learned with this tutor before? Enter your
+  code." `learner.py restore <code>` saves it and pulls everything; a wrong code changes nothing
+  (rolled back) and says so; a tampered archive is rejected (SecretBox authentication) and never
+  merged. If the fork needs `gh` first, the code is kept and the next session start retries.
+- **Off switch:** `learner.py sync off` (or `"sync": false` in a `record` call).
+- **Repo B never reads `tutor-sync`** (§10).
+
+## 17. Course updates (Phase 2.5, owner requirement)
+
+Learners get newly reviewed lessons and tutor updates automatically. `tools/update.py` runs in
+the session-start hook (`startup`, `clear`), before the sync pull; agents without hooks run it
+once before greeting. Same silence rules as §15.
+
+- **Source: signed release tags only, never `main`'s HEAD.** The release tags `v*` of
+  `https://github.com/<upstream_repo>.git` are fetched anonymously into
+  `refs/tutor-upstream/tags/`. A release is `vYYYY.MM.DD` or `vYYYY.MM.DD.N`, newer than the one
+  applied. The newest release that verifies is applied.
+- **Verification:** the tag must be annotated with an SSH signature (never PGP: the learner's own
+  GPG keyring is never consulted) that `git verify-tag` accepts with `gpg.format=ssh` and
+  `gpg.ssh.allowedSignersFile` = a snapshot of `docs/allowed_signers` **from the learner's current
+  copy**, taken before anything changes, never the incoming one. Releases are checked oldest
+  first; a verified release that changes `docs/allowed_signers` becomes the trust for the
+  releases after it, so a change to the signers is accepted only through a release signed by an
+  already trusted key. An unsigned, lightweight, PGP-signed or badly signed tag gives no
+  update and is logged; teaching continues. With no key in `docs/allowed_signers`, there are no
+  updates at all.
+- **Collector keys:** for every verified release (oldest first) the tutor records the
+  fingerprint of `project.json`'s `collector.keys`. The keys in the learner's copy before any
+  update are the baseline (`.tutor/collector_keys.json`). Changed keys are trusted only once the
+  same keys arrive in **two consecutive signed releases**; until then `collect.py` collects
+  nothing and `publish.py` publishes nothing (both logged). A key that appears once and is
+  reverted is never trusted.
+- **Ownership:** `.github/CODEOWNERS` makes the owner the code owner of `tools/`, `.claude/`,
+  `AGENTS.md`, `CLAUDE.md`, `project.json`, `requirements-*.txt`, `core/schemas/`,
+  `docs/allowed_signers` and `.github/`; the `main` ruleset requires code-owner review, and a
+  tag ruleset restricts `v*` tags to the owner (OWNER_CHECKLIST).
+- **What updates:** `core/`, `tools/`, `.claude/`, `.github/`, `docs/`, `AGENTS.md`, `CLAUDE.md`,
+  `README.md`, `project.json` (new collector keys arrive this way), `requirements-*.txt`,
+  `pytest.ini`, `.gitignore`. **Never** `learner/`, `my-work/` or `.tutor/`, even if upstream
+  has such files.
+- **History is never rewritten.** A true `git merge --ff-only` when the learner's branch has no
+  commits of its own and a clean tree. Otherwise (the usual case, since session end commits the
+  learner's work) each changed course file gets a three-way check against the last applied
+  upstream commit (`.tutor/update_state.json`): unchanged here → take upstream; changed here and
+  upstream → keep the local file and log it (the update is retried next session); then one new
+  commit `tutor: course update to <sha>` with those files only. Never rebase, reset or force.
+- **Reviewed lessons:** when upstream brings a `"status": "reviewed"` lesson where the learner has
+  an unreviewed one (or a file the tutor wrote here), the reviewed one is used from then on, the
+  local copy is kept under `learner/history/<stamp>-before-update/`, and the learner's place in
+  that chapter is mapped across: `plan.json` records `batches_done` by title; done batches carry
+  over by same or similar title, otherwise by the same share of the chapter rounded down. The
+  chapter's status is unchanged. Sync never replaces a reviewed lesson with an unreviewed copy,
+  and reviewed lessons are never proposed back to Repo B.
+- **Reuse before writing:** `learner.py reuse-lesson <subject> <module>` finds a reviewed lesson
+  for the same chapter: the subject's own, or one in another subject built from the same board,
+  textbook and edition with the same chapter number (copied in place). Only if none fits does
+  the tutor write one.
+- **Failures:** offline, a busy git state (merge, rebase, detached HEAD), no common history, or a
+  conflict: teaching continues on the current copy and the update is retried next session.
+  A developer checkout (no `learner/profile.json`) is never updated.
+- **Trust:** updated tools and hooks run from the next session on, so only signed releases are
+  applied; the release key, `docs/allowed_signers` and the owner's GitHub account (2FA with a
+  passkey or security key) are what learners ultimately trust.
