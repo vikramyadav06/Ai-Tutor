@@ -9,68 +9,21 @@
     {
       "title": "Short batch title (4-6 steps, ~15-25 minutes)",
       "steps": [
-        {
-          "type": "learn",
-          "title": "One idea per step",
-          "body": "Plain words. **Bold** and `code` work.\n\n- Lists work too",
-          "code": "optional_python_snippet()"
-        },
-        {
-          "type": "choice",
-          "question": "One question?",
-          "code": "optional",
-          "options": [
-            "Wrong",
-            "Right",
-            "Wrong"
-          ],
-          "answer": 1,
-          "explain": "Why the right answer is right."
-        },
-        {
-          "type": "fill",
-          "prompt": "Complete the code.",
-          "code": "page = context.___()",
-          "answers": [
-            [
-              "new_page"
-            ]
-          ],
-          "explain": "Each ___ is one blank; answers[i] lists accepted spellings."
-        },
-        {
-          "type": "order",
-          "prompt": "Put these in order.",
-          "items": [
-            "First",
-            "Second",
-            "Third"
-          ],
-          "explain": "Items are written in the correct order; the app shuffles them."
-        },
-        {
-          "type": "practice",
-          "title": "Hands-on (on your computer)",
-          "body": "What to build.",
-          "file": "core/subjects/<subject-id>/module-id/exercises/test_ex01_name.py",
-          "command": "pytest my-work/module-id -v",
-          "solution": "core/subjects/<subject-id>/module-id/solutions/test_ex01_name.py"
-        }
+        {"type": "learn", "title": "One idea per step", "body": "Plain words. **Bold** and `code` work.\n\n- Lists work too", "code": "optional snippet, formula or example"},
+        {"type": "choice", "question": "One question?", "options": ["Wrong", "Right", "Wrong"], "answer": 1, "explain": "Why the right answer is right."},
+        {"type": "fill", "prompt": "Complete the sentence.", "text": "Water boils at ___ °C at sea level.", "answers": [["100"]], "explain": "Use 'text' for words and 'code' for code. Each ___ is one blank; answers[i] lists accepted answers."},
+        {"type": "order", "prompt": "Put these in order.", "items": ["First", "Second", "Third"], "explain": "Items are written in the correct order; the tutor shuffles them."},
+        {"type": "explain", "prompt": "In your own words: why does ice float?", "rubric": ["Ice is less dense than liquid water", "Because its molecules are held further apart"], "explain": "A good answer: ice is less dense than water because ..."},
+        {"type": "practice", "title": "Try it yourself", "body": "A real task. Programming subjects add file, command and solution.", "file": "core/subjects/<subject-id>/module-id/exercises/test_ex01_name.py", "command": "pytest my-work/module-id -v", "solution": "core/subjects/<subject-id>/module-id/solutions/test_ex01_name.py"}
       ],
       "notes": {
-        "points": [
-          "Revision point 1",
-          "Revision point 2"
-        ],
-        "code": "optional key snippet to remember",
+        "points": ["Revision point 1", "Revision point 2"],
+        "code": "optional key snippet, formula or example to remember",
         "remember": "One-line takeaway."
       }
     }
   ],
   "interview": [
-    {
-      "q": "An interview question on this module?",
-      "a": "A short model answer."
-    }
+    {"q": "Optional: an interview question on this module?", "a": "A short model answer."}
   ]
 }
