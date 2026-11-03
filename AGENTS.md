@@ -104,8 +104,9 @@ Details: `core/teaching/adaptation.md` and `core/teaching/learner-model.md`.
 
 ## 5. Writing subjects and lessons
 
-Reviewed lessons arrive by themselves: the session-start hook updates the course from upstream
-(agents without hooks: `python tools/update.py` once at session start, silently). Before
+Reviewed lessons arrive by themselves: the session-start hook updates the course to the newest
+signed release from upstream (agents without hooks: `python tools/update.py` once at session
+start, silently). Never update the course any other way (no `git pull`, no checkout of `main`). Before
 writing any lesson, run `python tools/learner.py reuse-lesson <subject> <module>`; if it prints
 a folder, teach from that reviewed lesson. If a reviewed version replaces a lesson the learner
 is part-way through, their place is kept: the private context says which batch to resume at.

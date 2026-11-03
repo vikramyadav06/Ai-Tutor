@@ -432,8 +432,29 @@ Learners get newly reviewed lessons and tutor updates automatically. `tools/upda
 the session-start hook (`startup`, `clear`), before the sync pull; agents without hooks run it
 once before greeting. Same silence rules as §15.
 
-- **Source:** `main` of `https://github.com/<upstream_repo>.git` (from `project.json`), fetched
-  anonymously into `refs/tutor-upstream/main`; no remote names are assumed.
+- **Source: signed release tags only, never `main`'s HEAD.** The release tags `v*` of
+  `https://github.com/<upstream_repo>.git` are fetched anonymously into
+  `refs/tutor-upstream/tags/`. A release is `vYYYY.MM.DD` or `vYYYY.MM.DD.N`, newer than the one
+  applied. The newest release that verifies is applied.
+- **Verification:** the tag must be annotated with an SSH signature (never PGP: the learner's own
+  GPG keyring is never consulted) that `git verify-tag` accepts with `gpg.format=ssh` and
+  `gpg.ssh.allowedSignersFile` = a snapshot of `docs/allowed_signers` **from the learner's current
+  copy**, taken before anything changes, never the incoming one. Releases are checked oldest
+  first; a verified release that changes `docs/allowed_signers` becomes the trust for the
+  releases after it, so a change to the signers is accepted only through a release signed by an
+  already trusted key. An unsigned, lightweight, PGP-signed or badly signed tag gives no
+  update and is logged; teaching continues. With no key in `docs/allowed_signers`, there are no
+  updates at all.
+- **Collector keys:** for every verified release (oldest first) the tutor records the
+  fingerprint of `project.json`'s `collector.keys`. The keys in the learner's copy before any
+  update are the baseline (`.tutor/collector_keys.json`). Changed keys are trusted only once the
+  same keys arrive in **two consecutive signed releases**; until then `collect.py` collects
+  nothing and `publish.py` publishes nothing (both logged). A key that appears once and is
+  reverted is never trusted.
+- **Ownership:** `.github/CODEOWNERS` makes the owner the code owner of `tools/`, `.claude/`,
+  `AGENTS.md`, `CLAUDE.md`, `project.json`, `requirements-*.txt`, `core/schemas/`,
+  `docs/allowed_signers` and `.github/`; the `main` ruleset requires code-owner review, and a
+  tag ruleset restricts `v*` tags to the owner (OWNER_CHECKLIST).
 - **What updates:** `core/`, `tools/`, `.claude/`, `.github/`, `docs/`, `AGENTS.md`, `CLAUDE.md`,
   `README.md`, `project.json` (new collector keys arrive this way), `requirements-*.txt`,
   `pytest.ini`, `.gitignore`. **Never** `learner/`, `my-work/` or `.tutor/`, even if upstream
@@ -458,5 +479,6 @@ once before greeting. Same silence rules as §15.
 - **Failures:** offline, a busy git state (merge, rebase, detached HEAD), no common history, or a
   conflict: teaching continues on the current copy and the update is retried next session.
   A developer checkout (no `learner/profile.json`) is never updated.
-- **Trust:** updated tools and hooks run from the next session on, so `main` must stay protected
-  (required review and checks, §11 and OWNER_CHECKLIST).
+- **Trust:** updated tools and hooks run from the next session on, so only signed releases are
+  applied; the release key, `docs/allowed_signers` and the owner's GitHub account (2FA with a
+  passkey or security key) are what learners ultimately trust.
