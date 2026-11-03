@@ -18,7 +18,10 @@ repository: `vikramwebgarh/Ai-Tutor` (Repo A) and `vikramwebgarh/Ai-Tutor-Platfo
   - `jsonschema==4.23.0` (record validation)
 - Subject-specific packages (e.g. Playwright) stay in each subject's own requirements file,
   installed only when the learner studies that subject.
-- Never call the network from tutor tools except `git` and `gh`.
+- Never call the network from tutor tools except `git` and `gh`, and one exception (owner
+  decision, 2026-11-03): `tools/learner.py install-sharing-packages` installs
+  `requirements-tutor.txt` into `.tutor/pylib` with pip or uv, only after the learner said yes
+  to sharing and to installing them, in the same consent moment.
 
 ## 2. Repo A layout (target after Phase 2)
 
@@ -34,6 +37,7 @@ core/
     session.student.v1.json
     lesson.v1.json
     delete.v1.json
+    subject.v1.json
   subjects/
     index.json                 # list of subjects: id, title, levels, path
     playwright-python/         # the existing course, moved here (catalog.json, modules)
@@ -87,6 +91,8 @@ the learner's own code), but the tutor never pushes `main` without the learner a
 - `enabled` stays `false` until the owner finishes OWNER_CHECKLIST.md. While false, tools build
   and validate records but never write to the outbox or push.
 - `student_collection: false` means student mode sends only the anonymous schema (§5).
+  `true` has no linked schema yet: tools keep the anonymous student record and write a warning
+  to `learner/tutor.log` on every run (owner decision, 2026-11-03).
 - Only the owner changes `keys`. `status` is `active` or `retired`; the newest `active` key encrypts.
 
 ## 4. Identity (adult mode only)
@@ -148,10 +154,27 @@ Each record is standalone: no field may link it to another record.
 ```
 schema: "lesson.v1", subject, module, level, explain_language,
 lesson: <the lesson.json object, see core/teaching lesson format>,
-files: { "<relative path>": "<text>" }   # exercises/solutions, ≤50 KB total
+files: { "<relative path>": "<text>" }   # exercises/solutions, ≤50 KB total; keys are
+                                         # exercises/<name> or solutions/<name>: no "..",
+                                         # no absolute paths, no backslashes
 ```
 
 Lessons **never** carry `learner_id`, dates or anything about the learner, in any mode.
+
+### 5.3a `subject.v1` (any mode; owner decision, 2026-11-03)
+
+`{schema, subject, title, level, explain_language, board?, textbook?, edition?, chapters[]
+{id, title, number?, kind}, status: "unreviewed"}`. A subject's chapter list as built from a
+learner's own textbook. Nothing about the learner; never signed; same scrub and encrypt path as
+lessons. Not sent while the catalog is provisional. `textbook` and `edition` are left out when
+`board` is `university` or `other`.
+
+### Board and textbook in session records (owner decision, 2026-11-03)
+
+Both session schemas carry optional `board` (enum: `cbse`, `cisce`, `nios`, `ib`, `cambridge`,
+`state-board`, `university`, `other`) and `textbook_edition` (slug, e.g. `exploration-2026-27`).
+Never an institution's name: a university is only `university`, and `textbook_edition` is left
+out for `university` and `other`, or if scrubbing touched it.
 
 ### 5.4 `delete.v1` (adult only)
 

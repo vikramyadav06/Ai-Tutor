@@ -295,3 +295,159 @@ def test_delete_request_through_record(tutor_root, keypair, config):
     tutor.record({"delete_request": True}, root=tutor_root)  # no git repo here: stays in the outbox
     [path] = list((tutor_root / ".tutor" / "outbox").rglob("*.bin"))
     assert decrypt(path, keypair)["record"]["schema"] == "delete.v1"
+
+
+# ---------- owner review after Phase 2 ----------
+
+SCHOOL = "class-9-science-exploration"
+
+
+def school_session(root, profile, answers):
+    learner.onboard(profile, root=root)
+    learner.plan_subject(SCHOOL, answers, root=root)
+    learner.set_sharing(True, root)
+    tutor.record({"subject": SCHOOL, "module": "chapter-01", "agent": "claude-code",
+                  "steps": [{"step_ref": "b1-s1", "type": "learn", "outcome": "viewed"}]}, root=root)
+    log_session.end(duration_min=20, root=root)
+
+
+def test_sessions_carry_board_and_textbook_edition(tutor_root, keypair, config):
+    school_session(tutor_root, STUDENT, {"board": "cbse", "textbook": "Exploration (NCERT Science, Class 9)",
+                                         "edition": "2026-27"})
+    [path] = collect.collect_pending(tutor_root, config)
+    record = decrypt(path, keypair)["record"]
+    Draft202012Validator(schema("session.student.v1")).validate(record)
+    assert record["board"] == "cbse"
+    assert record["textbook_edition"] == "exploration-ncert-science-class-9-2026-27"
+
+
+def test_university_names_never_leave(tutor_root, keypair, config):
+    """A university is only 'university': its name is a private term and no textbook slug is sent."""
+    path = tutor_root / "core" / "subjects" / SCHOOL / "catalog.json"
+    catalog = json.loads(path.read_text())
+    catalog["syllabus"].update(board="university", textbook="Sunrise University Physics Notes", edition="2026")
+    path.write_text(json.dumps(catalog))
+    learner.onboard(ADULT, root=tutor_root)
+    learner.add_private_term("Sunrise University", tutor_root)
+    learner.plan_subject(SCHOOL, {"board": "university", "textbook": "Sunrise University Physics Notes",
+                                  "edition": "2026"}, root=tutor_root)
+    learner.set_sharing(True, tutor_root)
+    tutor.record({"subject": SCHOOL, "module": "chapter-01",
+                  "steps": [{"step_ref": "b1-s1", "type": "learn", "outcome": "viewed"}]}, root=tutor_root)
+    log_session.end(duration_min=20, root=tutor_root)
+    [out] = collect.collect_pending(tutor_root, config)
+    record = decrypt(out, keypair)["record"]
+    assert record["board"] == "university" and "textbook_edition" not in record
+    assert "sunrise" not in json.dumps(record).lower()
+    _, subject = collect.build_subject_record(path)
+    assert "textbook" not in subject and "edition" not in subject
+
+
+@pytest.mark.parametrize("board", ["Delhi University", "CBSE", "sunrise-university"])
+def test_session_board_must_be_a_category(board):
+    s = schema("session.adult.v1")
+    errors = list(Draft202012Validator(s).iter_errors({"board": board}))
+    assert any(list(e.path) == ["board"] for e in errors)
+
+
+def test_subject_record_is_shared_like_lessons(tutor_root, keypair, config):
+    git(tutor_root, "init", "-q")
+    git(tutor_root, "add", "-A")
+    git(tutor_root, "-c", "user.name=u", "-c", "user.email=u@invalid", "commit", "-q", "-m", "upstream content")
+    learner.onboard(STUDENT, root=tutor_root)
+    learner.set_sharing(True, tutor_root)
+    # the tutor builds a catalog from the learner's pasted contents page
+    new = tutor_root / "core" / "subjects" / "class-10-maths-sample"
+    new.mkdir()
+    catalog = json.loads((tutor_root / "core" / "subjects" / SCHOOL / "catalog.json").read_text())
+    catalog.update(subject="class-10-maths-sample", title="Class 10 Maths (sample)")
+    (new / "catalog.json").write_text(json.dumps(catalog))
+    # and a provisional one, which must not be shared
+    prov = tutor_root / "core" / "subjects" / "class-8-sample"
+    prov.mkdir()
+    (prov / "catalog.json").write_text(json.dumps({**catalog, "subject": "class-8-sample",
+                                                   "syllabus": {**catalog["syllabus"], "provisional": True}}))
+    paths = collect.collect_pending(tutor_root, config)
+    envs = [decrypt(p, keypair) for p in paths]
+    subjects = [e for e in envs if e["record"]["schema"] == "subject.v1"]
+    assert len(subjects) == 1
+    env = subjects[0]
+    assert set(env) == {"v", "record", "scrub_version"}  # never signed
+    record = env["record"]
+    Draft202012Validator(schema("subject.v1")).validate(record)
+    assert record["subject"] == "class-10-maths-sample" and record["status"] == "unreviewed"
+    assert record["board"] == "cbse" and record["edition"] == "2026-27"
+    assert len(record["chapters"]) == 15 and record["chapters"][0] == {
+        "id": "chapter-01", "title": "Chapter 1 (placeholder title)", "kind": "core", "number": 1}
+    assert not all_keys(schema("subject.v1")) & (LINKABLE | {"date", "age_band"})
+    assert collect.collect_pending(tutor_root, config) == []  # sent once
+    assert "provisional catalog" in (tutor_root / "learner" / "tutor.log").read_text()
+
+
+def test_student_collection_true_warns_every_run(tutor_root, keypair, config):
+    session(tutor_root, STUDENT)
+    on = {**config, "student_collection": True}
+    [path] = collect.collect_pending(tutor_root, on)
+    assert decrypt(path, keypair)["record"]["schema"] == "session.student.v1"  # still anonymous
+    collect.collect_pending(tutor_root, on)
+    log = (tutor_root / "learner" / "tutor.log").read_text()
+    assert log.count("WARNING: student_collection is true") == 2
+
+
+@pytest.mark.parametrize("key", ["exercises/../../etc/passwd", "/etc/passwd", "solutions\\evil.py",
+                                 "C:/x.py", "exercises/a..py", "../solutions/x.py", "notes/x.py", "exercises/"])
+def test_lesson_file_keys_must_stay_inside_the_module(key):
+    s = schema("lesson.v1")
+    files_schema = s["properties"]["files"]
+    assert list(Draft202012Validator({**files_schema, "$defs": s["$defs"]}).iter_errors({key: "x"}))
+    with pytest.raises(collect.CollectError, match="unsafe lesson file path"):
+        collect.check_file_keys({key: "x"})
+
+
+def test_good_lesson_file_keys_pass():
+    collect.check_file_keys({"exercises/test_ex01_smoke.py": "", "solutions/test_ex01_smoke.py": ""})
+
+
+# ---------- packages for sharing (asked in the consent moment) ----------
+
+def test_sharing_needs_its_packages(tutor_root, monkeypatch):
+    learner.onboard(ADULT, root=tutor_root)
+    monkeypatch.setattr(learner, "missing_packages", lambda: ["pynacl", "jsonschema"])
+    with pytest.raises(learner.TutorError, match="ask the learner"):
+        learner.set_sharing(True, tutor_root)
+    assert json.loads((tutor_root / "learner" / "profile.json").read_text())["sharing"] is False
+    learner.set_sharing(False, tutor_root)  # saying no always works
+
+
+def test_install_goes_to_the_private_folder(tutor_root, monkeypatch, tmp_path):
+    fake = tmp_path / "fake_pip.py"
+    fake.write_text("import sys, pathlib\n"
+                    "target = pathlib.Path(sys.argv[sys.argv.index('--target') + 1])\n"
+                    "(target / 'installed.txt').write_text(' '.join(sys.argv[1:]))\n")
+    monkeypatch.setenv("TUTOR_PIP_COMMAND", json.dumps([sys.executable, str(fake)]))
+    target = learner.install_packages(tutor_root)
+    assert target == tutor_root / ".tutor" / "pylib"
+    assert "requirements-tutor.txt" in (target / "installed.txt").read_text()
+    assert str(target) in sys.path
+    sys.path.remove(str(target))
+
+
+def test_failed_install_means_nothing_is_shared(tutor_root, monkeypatch, tmp_path):
+    fake = tmp_path / "broken_pip.py"
+    fake.write_text("import sys; sys.exit('no network')\n")
+    monkeypatch.setenv("TUTOR_PIP_COMMAND", json.dumps([sys.executable, str(fake)]))
+    with pytest.raises(learner.TutorError, match="could not install"):
+        learner.install_packages(tutor_root)
+
+
+def test_sharing_check_and_install_cli(tutor_root, run_tool, tmp_path):
+    assert run_tool("learner", "sharing-check").stdout == ""  # the test environment has both
+    fake = tmp_path / "broken_pip.py"
+    fake.write_text("import sys; sys.exit('no network')\n")
+    import os as _os
+    _os.environ["TUTOR_PIP_COMMAND"] = json.dumps([sys.executable, str(fake)])
+    try:
+        result = run_tool("learner", "install-sharing-packages", check=False)
+    finally:
+        del _os.environ["TUTOR_PIP_COMMAND"]
+    assert result.returncode == 2 and "could not install" in result.stderr and result.stdout == ""
