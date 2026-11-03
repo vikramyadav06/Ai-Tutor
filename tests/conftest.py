@@ -35,6 +35,11 @@ def validate_tool():
     return load_tool("validate")
 
 
+@pytest.fixture(scope="session")
+def tutor_tool():
+    return load_tool("tutor")
+
+
 @pytest.fixture
 def tutor_root(tmp_path):
     """A throwaway repo root: a copy of core/ plus the fixture subjects (as if a tutor had

@@ -34,7 +34,7 @@ def test_repository_content_is_valid(validate_tool):
 
 def test_cli_ok(validate_tool, capsys):
     assert validate_tool.main([]) == 0
-    assert "OK:" in capsys.readouterr().out
+    assert capsys.readouterr().out == ""  # silent on success
 
 
 def test_generated_lesson_validates(validate_tool, tutor_root, lesson):

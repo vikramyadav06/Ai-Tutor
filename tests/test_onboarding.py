@@ -159,6 +159,7 @@ def test_cli_reports_errors_without_traceback(run_tool):
     assert result.returncode == 2
     assert "error: age_band is required" in result.stderr
     assert "Traceback" not in result.stderr
+    assert result.stdout == ""
 
 
 def test_replanning_keeps_progress(tutor_root, learner_tool):

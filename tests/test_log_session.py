@@ -11,8 +11,10 @@ def events(root, sid):
 
 
 def test_full_session_via_cli(tutor_root, run_tool):
-    sid = run_tool("log_session", "start", "--subject", "class-9-science", "--module", "matter",
-                   "--agent", "claude-code").stdout.strip()
+    started = run_tool("log_session", "start", "--subject", "class-9-science", "--module", "matter",
+                       "--agent", "claude-code")
+    assert started.stdout == "" and started.stderr == ""
+    sid = (tutor_root / "learner" / "sessions" / "current").read_text().strip()
     assert re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}", sid)
     quiet = [
         ("step", "--module", "matter", "--step-ref", "b1-s2", "--type", "choice", "--outcome", "incorrect",
@@ -65,7 +67,9 @@ def test_no_session_yet(tutor_root, log_tool, run_tool):
     with pytest.raises(log_tool.LogError, match="no current session"):
         log_tool.step("matter", "b1-s1", "learn", "viewed", root=tutor_root)
     result = run_tool("log_session", "end", check=False)
-    assert result.returncode == 2 and "error:" in result.stderr
+    # never interrupts: exit 0, no output, the problem goes to learner/tutor.log
+    assert result.returncode == 0 and result.stdout == "" and result.stderr == ""
+    assert "end failed: no current session" in (tutor_root / "learner" / "tutor.log").read_text()
 
 
 def test_session_id_cannot_escape_folder(tutor_root, log_tool):
