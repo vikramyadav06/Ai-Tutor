@@ -1,0 +1,35 @@
+{
+  "subject": "python",
+  "title": "Python programming",
+  "levels": ["college", "professional", "self-learner"],
+  "explain_language": "en",
+  "questions": [
+    {"id": "prior", "question": "Have you programmed before, in any language?", "options": [
+      {"value": "none", "label": "Never"},
+      {"value": "other-language", "label": "Yes, in another language"},
+      {"value": "some-python", "label": "A little Python"}]},
+    {"id": "goal", "question": "What do you want to do with Python?", "options": [
+      {"value": "automation", "label": "Automate tasks at work"},
+      {"value": "data", "label": "Work with data"},
+      {"value": "career", "label": "Start a programming career"}]}
+  ],
+  "modules": [
+    {"id": "first-steps", "title": "First steps: running Python", "hours": 1, "kind": "core", "requires": []},
+    {"id": "values-and-variables", "title": "Values and variables", "hours": 2, "kind": "core", "requires": ["first-steps"]},
+    {"id": "control-flow", "title": "Decisions and loops", "hours": 3, "kind": "core", "requires": ["values-and-variables"]},
+    {"id": "functions", "title": "Functions", "hours": 3, "kind": "core", "requires": ["control-flow"]},
+    {"id": "collections", "title": "Lists, dictionaries and sets", "hours": 3, "kind": "core", "requires": ["functions"]},
+    {"id": "files", "title": "Reading and writing files", "hours": 2, "kind": "optional", "requires": ["collections"]},
+    {"id": "data-basics", "title": "Working with CSV data", "hours": 3, "kind": "optional", "requires": ["files"]},
+    {"id": "testing", "title": "Testing with pytest", "hours": 2, "kind": "optional", "requires": ["functions"]},
+    {"id": "project", "title": "A small project", "hours": 4, "kind": "optional", "requires": ["collections"]}
+  ],
+  "focus_areas": {},
+  "rules": [
+    {"when": {"goal": "automation"}, "add_modules": ["files"], "reason": "For your goal"},
+    {"when": {"goal": "data"}, "add_modules": ["data-basics"], "reason": "For your goal"},
+    {"when": {"goal": "career"}, "add_modules": ["testing", "project"], "reason": "For your goal"},
+    {"when": {"prior": ["other-language", "some-python"]}, "shorten": {"modules": ["first-steps", "values-and-variables", "control-flow"], "hours": 1}, "note": "Quick pace: you've programmed before"}
+  ],
+  "schedule_last": ["project"]
+}

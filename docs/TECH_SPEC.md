@@ -6,7 +6,7 @@ Anything not covered here: pick the simplest safe option and record it in
 `docs/DECISIONS.md` (date, decision, reason).
 
 Names used below: **Repo A** = this repository (public). **Repo B** = the private platform
-repository. `OWNER/ai-tutor` and `OWNER/ai-tutor-platform` are placeholders for their real names.
+repository: `vikramwebgarh/Ai-Tutor` (Repo A) and `vikramwebgarh/Ai-Tutor-Platform` (Repo B).
 
 ---
 
@@ -41,6 +41,8 @@ core/
 tools/
   learner.py                   # create identity, show/restore learner code, mode
   log_session.py               # append events to learner/sessions/<session>.jsonl
+  tutor.py                     # one quiet record call per batch; session hooks (§15)
+  tutorlog.py                  # failures → learner/tutor.log, retry queue (§15)
   collect.py                   # build record → scrub → sign → encrypt → outbox
   publish.py                   # commit outbox to tutor-data branch and push
   scrub.py                     # PII scrubber (byte-identical copy lives in Repo B)
@@ -51,6 +53,7 @@ learner/                       # private, git-ignored
 .tutor/                        # private, git-ignored (identity, outbox, worktree)
 archive/web-app/               # index.html + bundle tooling, kept as the seed for Repo B
 .github/workflows/checks.yml
+.claude/settings.json          # Claude Code hooks + narrow allow-list (§15)
 docs/
 ```
 
@@ -68,7 +71,7 @@ the learner's own code), but the tutor never pushes `main` without the learner a
 ```json
 {
   "schema_version": 1,
-  "upstream_repo": "OWNER/ai-tutor",
+  "upstream_repo": "vikramwebgarh/Ai-Tutor",
   "collector": {
     "enabled": false,
     "keys": [
@@ -238,7 +241,7 @@ anywhere except `.tutor/identity.json`.
 Workflow `.github/workflows/ingest.yml`, `schedule: cron "17 * * * *"` plus `workflow_dispatch`,
 `concurrency: ingest`, top-level `permissions: contents: write` (Repo B only).
 
-1. **Discover:** `GET /repos/OWNER/ai-tutor/forks?per_page=100` (paginate) with the default
+1. **Discover:** `GET /repos/vikramwebgarh/Ai-Tutor/forks?per_page=100` (paginate) with the default
    `GITHUB_TOKEN`. For each fork: `git ls-remote https://github.com/<fork>.git refs/heads/tutor-data`.
 2. **Skip unchanged:** compare with `ingest/state.json` (`fork_id → last ingested commit`).
    `state.json` stores numeric fork ids and commits only, never usernames, and never which record
@@ -318,3 +321,35 @@ Every phase ends with `pytest` green and these checks passing:
   wrong signature, oversized, bad path, injected lesson text) files each correctly.
 
 Stop after each phase, summarise for the owner, list any owner steps, and wait for approval.
+
+## 15. The learner only ever experiences a tutor (owner requirement, every phase)
+
+All background work (session logging, learner-model updates, private terms, revision notes,
+progress, git commits, and from Phase 2 collect and publish) is invisible and never
+interrupts teaching.
+
+- **Claude Code:** `.claude/settings.json` runs `tools/tutor.py hook session-start` on
+  `SessionStart` (`startup|resume|clear|compact`; its stdout is private context for the agent)
+  and `tools/tutor.py hook session-end` on `SessionEnd` (timeout 30 s; the budget caps at 60 s).
+  SessionEnd does not run if the terminal is simply closed, so session start also finishes any
+  previous session and retries queued work. Phase 2 adds collect + publish to `tutor.py finish`.
+- **Allow-list:** exactly `Bash(python tools/<script>.py *)` and `Bash(python3 ...)` for
+  `tutor`, `learner`, `log_session`, `validate`, plus `Edit(/core/subjects/**)` for writing
+  lessons. No general Bash, no `rm`, no network commands. Git runs only inside the tools and
+  hooks, which need no permission rule. Deny: `curl`, `wget`, reading `.tutor/`, editing
+  `.tutor/` and `learner/`.
+- **Agents without hooks:** `python tools/tutor.py context` once before greeting; one
+  `python tools/tutor.py record` call at the end of each batch, never between steps;
+  `"end": true` in the session's last call.
+- **AGENTS.md:** never mention logs, files, commits, schemas or data while teaching. The only
+  allowed interruptions, each at most once: the consent question (§9), showing an adult their
+  learner code (§4), and one `gh auth login` request (§8).
+- **Tools print nothing on success** (except query commands whose output goes only to the
+  agent: `tutor.py context`, the session-start hook, `learner.py show`, `log_session.py
+  summary`, and `validate.py` problem lists). On failure they write one line to
+  `learner/tutor.log`, queue work that may succeed later in `learner/pending.jsonl` (dropped
+  after 3 attempts), and exit 0. `learner.py onboard|plan` also explain bad answers on stderr,
+  for the agent only.
+- **Hooks never act in a developer checkout:** no `learner/profile.json` → no commits.
+- **Test:** `tests/test_quiet_session.py` simulates a full session and asserts every
+  bookkeeping call writes nothing to stdout or stderr.

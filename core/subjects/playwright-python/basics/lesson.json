@@ -1,6 +1,10 @@
 {
   "id": "basics",
   "title": "Basics & architecture",
+  "subject": "playwright-python",
+  "level": "professional",
+  "explain_language": "en",
+  "status": "unreviewed",
   "intro": "Understand how Playwright controls browsers, the Browser → Context → Page model, and write and run your first test.",
   "batches": [
     {
@@ -166,9 +170,9 @@
           "type": "practice",
           "title": "Write your first test",
           "body": "Copy the exercise into `my-work/basics/`. Log in to saucedemo as `standard_user` / `secret_sauce`, then check the URL ends with `inventory.html` and the page title is **Swag Labs**. Run it once headless and once with `--headed`.",
-          "file": "course/basics/exercises/test_ex01_first_test.py",
+          "file": "core/subjects/playwright-python/basics/exercises/test_ex01_first_test.py",
           "command": "pytest my-work/basics -v --headed",
-          "solution": "course/basics/solutions/test_ex01_first_test.py"
+          "solution": "core/subjects/playwright-python/basics/solutions/test_ex01_first_test.py"
         }
       ],
       "notes": {

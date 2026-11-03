@@ -1,0 +1,441 @@
+{
+  "subject": "playwright-python",
+  "title": "Playwright with Python (web test automation)",
+  "levels": [
+    "college",
+    "professional",
+    "self-learner"
+  ],
+  "explain_language": "en",
+  "_note": "Modules, onboarding questions and plan rules for this subject. Read by tools/learner.py and AI tutors. Each module's content lives in <module id>/lesson.json. 'requires' = modules that must come first. Format: core/teaching/subject-catalog.md.",
+  "questions": [
+    {
+      "id": "role",
+      "question": "What best describes your current role?",
+      "options": [
+        {
+          "value": "manual-qa",
+          "label": "Manual tester / QA"
+        },
+        {
+          "value": "automation-qa",
+          "label": "Automation QA (Selenium, Cypress, etc.)"
+        },
+        {
+          "value": "developer",
+          "label": "Developer"
+        },
+        {
+          "value": "student",
+          "label": "Student / fresher"
+        },
+        {
+          "value": "other",
+          "label": "Other"
+        }
+      ]
+    },
+    {
+      "id": "python_level",
+      "question": "How comfortable are you with Python?",
+      "options": [
+        {
+          "value": "none",
+          "label": "New to Python"
+        },
+        {
+          "value": "basic",
+          "label": "Basic (variables, functions, loops)"
+        },
+        {
+          "value": "comfortable",
+          "label": "Comfortable (classes, modules, pytest)"
+        }
+      ]
+    },
+    {
+      "id": "selenium_level",
+      "question": "Have you used Selenium?",
+      "options": [
+        {
+          "value": "none",
+          "label": "Never used it"
+        },
+        {
+          "value": "some",
+          "label": "Some experience"
+        },
+        {
+          "value": "strong",
+          "label": "Use it regularly / professionally"
+        }
+      ]
+    },
+    {
+      "id": "goal",
+      "question": "What's your main goal?",
+      "options": [
+        {
+          "value": "job-switch",
+          "label": "Switch jobs / prepare for interviews"
+        },
+        {
+          "value": "use-at-work",
+          "label": "Use Playwright in my current job"
+        },
+        {
+          "value": "migrate",
+          "label": "Migrate existing Selenium tests to Playwright"
+        },
+        {
+          "value": "career-start",
+          "label": "Start a career in test automation"
+        },
+        {
+          "value": "explore",
+          "label": "Just exploring / learning for fun"
+        }
+      ]
+    },
+    {
+      "id": "focus",
+      "question": "Beyond the core lessons, which topics do you want to learn?",
+      "multi": true,
+      "options": [
+        {
+          "value": "framework",
+          "label": "Framework design (POM, auth reuse, debugging)"
+        },
+        {
+          "value": "api",
+          "label": "API testing"
+        },
+        {
+          "value": "network",
+          "label": "Network mocking"
+        },
+        {
+          "value": "visual-a11y",
+          "label": "Visual & accessibility testing"
+        },
+        {
+          "value": "cross-browser",
+          "label": "Cross-browser testing"
+        },
+        {
+          "value": "cross-device",
+          "label": "Cross-device / mobile emulation"
+        },
+        {
+          "value": "reporting",
+          "label": "Parallel runs & reporting (Allure)"
+        },
+        {
+          "value": "ci",
+          "label": "CI/CD with GitHub Actions"
+        }
+      ]
+    }
+  ],
+  "modules": [
+    {
+      "id": "python-basics",
+      "title": "Python essentials for testers",
+      "hours": 4,
+      "kind": "optional",
+      "requires": []
+    },
+    {
+      "id": "setup",
+      "title": "Setup",
+      "hours": 1,
+      "kind": "core",
+      "requires": []
+    },
+    {
+      "id": "basics",
+      "title": "Basics & architecture",
+      "hours": 3,
+      "kind": "core",
+      "requires": [
+        "setup"
+      ]
+    },
+    {
+      "id": "locators",
+      "title": "Locators",
+      "hours": 3,
+      "kind": "core",
+      "requires": [
+        "basics"
+      ]
+    },
+    {
+      "id": "actions",
+      "title": "Actions & tricky UI",
+      "hours": 3,
+      "kind": "core",
+      "requires": [
+        "locators"
+      ]
+    },
+    {
+      "id": "assertions",
+      "title": "Assertions & waiting",
+      "hours": 3,
+      "kind": "core",
+      "requires": [
+        "actions"
+      ]
+    },
+    {
+      "id": "pytest-playwright",
+      "title": "pytest-playwright deep dive",
+      "hours": 3,
+      "kind": "core",
+      "requires": [
+        "assertions"
+      ]
+    },
+    {
+      "id": "selenium-migration",
+      "title": "Migrating from Selenium to Playwright",
+      "hours": 3,
+      "kind": "optional",
+      "requires": [
+        "pytest-playwright"
+      ]
+    },
+    {
+      "id": "pom",
+      "title": "Page Object Model",
+      "hours": 3,
+      "kind": "focus",
+      "requires": [
+        "pytest-playwright"
+      ]
+    },
+    {
+      "id": "auth-debugging",
+      "title": "Auth, sessions & debugging",
+      "hours": 3,
+      "kind": "focus",
+      "requires": [
+        "pom"
+      ]
+    },
+    {
+      "id": "api",
+      "title": "API testing",
+      "hours": 3,
+      "kind": "focus",
+      "requires": [
+        "pytest-playwright"
+      ]
+    },
+    {
+      "id": "network",
+      "title": "Network control & mocking",
+      "hours": 3,
+      "kind": "focus",
+      "requires": [
+        "pytest-playwright"
+      ]
+    },
+    {
+      "id": "visual-a11y",
+      "title": "Visual & accessibility testing",
+      "hours": 3,
+      "kind": "focus",
+      "requires": [
+        "pytest-playwright"
+      ]
+    },
+    {
+      "id": "cross-browser",
+      "title": "Cross-browser testing",
+      "hours": 3,
+      "kind": "focus",
+      "requires": [
+        "pytest-playwright"
+      ]
+    },
+    {
+      "id": "cross-device",
+      "title": "Cross-device (mobile emulation)",
+      "hours": 3,
+      "kind": "focus",
+      "requires": [
+        "pytest-playwright"
+      ]
+    },
+    {
+      "id": "parallel-allure",
+      "title": "Parallel runs & Allure reports",
+      "hours": 3,
+      "kind": "focus",
+      "requires": [
+        "pom"
+      ]
+    },
+    {
+      "id": "ci",
+      "title": "CI with GitHub Actions",
+      "hours": 3,
+      "kind": "focus",
+      "requires": [
+        "pom"
+      ]
+    },
+    {
+      "id": "portfolio",
+      "title": "Portfolio project",
+      "hours": 4,
+      "kind": "optional",
+      "requires": [
+        "pom"
+      ]
+    },
+    {
+      "id": "interview-prep",
+      "title": "Interview preparation",
+      "hours": 3,
+      "kind": "optional",
+      "requires": [
+        "pytest-playwright"
+      ]
+    }
+  ],
+  "focus_areas": {
+    "framework": {
+      "label": "Framework design (POM, auth reuse, debugging)",
+      "modules": [
+        "pom",
+        "auth-debugging"
+      ]
+    },
+    "api": {
+      "label": "API testing",
+      "modules": [
+        "api"
+      ]
+    },
+    "network": {
+      "label": "Network mocking",
+      "modules": [
+        "network"
+      ]
+    },
+    "visual-a11y": {
+      "label": "Visual & accessibility testing",
+      "modules": [
+        "visual-a11y"
+      ]
+    },
+    "cross-browser": {
+      "label": "Cross-browser testing",
+      "modules": [
+        "cross-browser"
+      ]
+    },
+    "cross-device": {
+      "label": "Cross-device / mobile emulation",
+      "modules": [
+        "cross-device"
+      ]
+    },
+    "reporting": {
+      "label": "Parallel runs & reporting (Allure)",
+      "modules": [
+        "parallel-allure"
+      ]
+    },
+    "ci": {
+      "label": "CI/CD with GitHub Actions",
+      "modules": [
+        "ci"
+      ]
+    }
+  },
+  "rules": [
+    {
+      "when": {
+        "python_level": "none"
+      },
+      "add_modules": [
+        "python-basics"
+      ],
+      "reason": "Python foundation"
+    },
+    {
+      "when": {
+        "goal": "job-switch"
+      },
+      "add_focus": [
+        "framework",
+        "reporting",
+        "ci"
+      ],
+      "add_modules": [
+        "portfolio",
+        "interview-prep"
+      ],
+      "reason": "For your goal"
+    },
+    {
+      "when": {
+        "goal": "use-at-work"
+      },
+      "add_focus": [
+        "framework"
+      ],
+      "add_modules": [],
+      "reason": "For your goal"
+    },
+    {
+      "when": {
+        "goal": "migrate"
+      },
+      "add_focus": [
+        "framework"
+      ],
+      "add_modules": [
+        "selenium-migration"
+      ],
+      "reason": "For your goal"
+    },
+    {
+      "when": {
+        "goal": "career-start"
+      },
+      "add_focus": [
+        "framework"
+      ],
+      "add_modules": [
+        "portfolio",
+        "interview-prep"
+      ],
+      "reason": "For your goal"
+    },
+    {
+      "when": {
+        "selenium_level": "strong",
+        "python_level": "comfortable"
+      },
+      "shorten": {
+        "modules": [
+          "basics",
+          "locators",
+          "actions",
+          "assertions"
+        ],
+        "hours": 1
+      },
+      "note": "Quick pace: you know the basics"
+    }
+  ],
+  "schedule_last": [
+    "portfolio",
+    "interview-prep"
+  ]
+}

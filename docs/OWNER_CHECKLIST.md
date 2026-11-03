@@ -5,15 +5,15 @@ accounts, keys and legal decisions. Tick them as you go.
 
 ## Before Phase 1 (10 minutes)
 
-- [ ] Create **Repo A** on GitHub, public, e.g. `<you>/ai-tutor`. Push this `ai-tutor` folder to it:
+- [ ] Create **Repo A** on GitHub, public, `vikramwebgarh/Ai-Tutor`. Push this `ai-tutor` folder to it:
       ```
       cd ai-tutor
       git init -b main && git add -A && git commit -m "Starting point"
-      git remote add origin https://github.com/<you>/ai-tutor.git
+      git remote add origin https://github.com/vikramwebgarh/Ai-Tutor.git
       git push -u origin main
       ```
 - [ ] Install the GitHub CLI and sign in: `gh auth login`
-- [ ] Replace `OWNER/ai-tutor` and `OWNER/ai-tutor-platform` in `project.json`,
+- [x] Replace the `OWNER/...` placeholders with `vikramwebgarh/Ai-Tutor` and `vikramwebgarh/Ai-Tutor-Platform` in `project.json`,
       `docs/TECH_SPEC.md` and `tools/owner/generate_keys.py` with your real repo names
       (Claude Code can do this find-and-replace if you tell it the names)
 - [ ] Open the folder in Claude Code and paste **Prompt 1** from `KICKOFF_PROMPTS.md`
@@ -26,7 +26,7 @@ accounts, keys and legal decisions. Tick them as you go.
 
 ## During or after Phase 2: keys and Repo B
 
-- [ ] Create **Repo B** on GitHub, **private**, e.g. `<you>/ai-tutor-platform`
+- [ ] Create **Repo B** on GitHub, **private**, `vikramwebgarh/Ai-Tutor-Platform`
 - [ ] Generate the collector keys **yourself, in your own terminal** (not through Claude Code):
       ```
       pip install pynacl==1.5.0
@@ -34,8 +34,8 @@ accounts, keys and legal decisions. Tick them as you go.
       ```
 - [ ] Store the two secrets in Repo B, then delete the files:
       ```
-      gh secret set COLLECTOR_PRIVATE_KEY_K1 --repo <you>/ai-tutor-platform < collector_private_k1.txt
-      gh secret set ACCOUNT_HASH_KEY        --repo <you>/ai-tutor-platform < account_hash_key.txt
+      gh secret set COLLECTOR_PRIVATE_KEY_K1 --repo vikramwebgarh/Ai-Tutor-Platform < collector_private_k1.txt
+      gh secret set ACCOUNT_HASH_KEY        --repo vikramwebgarh/Ai-Tutor-Platform < account_hash_key.txt
       rm collector_private_k1.txt account_hash_key.txt
       ```
 - [ ] Put the printed **public** key into `project.json` → `collector.keys[0].public_key_b64`
@@ -57,7 +57,7 @@ accounts, keys and legal decisions. Tick them as you go.
 - [ ] GitHub → Settings → Developer settings → **Fine-grained tokens → Generate**:
       Repository access: only Repo A. Permissions: **Contents: Read and write**,
       **Pull requests: Read and write**, nothing else. Expiry: 90 days.
-- [ ] Store it in Repo B: `gh secret set REPO_A_PR_TOKEN --repo <you>/ai-tutor-platform`
+- [ ] Store it in Repo B: `gh secret set REPO_A_PR_TOKEN --repo vikramwebgarh/Ai-Tutor-Platform`
 - [ ] Calendar reminder to renew it before it expires
 
 ## Before switching on collection (`collector.enabled: true`)

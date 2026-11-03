@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(python tools/tutor.py *)",
+      "Bash(python3 tools/tutor.py *)",
+      "Bash(python tools/learner.py *)",
+      "Bash(python3 tools/learner.py *)",
+      "Bash(python tools/log_session.py *)",
+      "Bash(python3 tools/log_session.py *)",
+      "Bash(python tools/validate.py *)",
+      "Bash(python3 tools/validate.py *)",
+      "Edit(/core/subjects/**)"
+    ],
+    "deny": [
+      "Bash(curl *)",
+      "Bash(wget *)",
+      "Read(/.tutor/**)",
+      "Edit(/.tutor/**)",
+      "Edit(/learner/**)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/tools/guard.py\" 2>/dev/null || python \"$CLAUDE_PROJECT_DIR/tools/guard.py\" 2>/dev/null",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/tools/tutor.py\" hook session-start 2>/dev/null || python \"$CLAUDE_PROJECT_DIR/tools/tutor.py\" hook session-start 2>/dev/null",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/tools/tutor.py\" hook session-end 2>/dev/null || python \"$CLAUDE_PROJECT_DIR/tools/tutor.py\" hook session-end 2>/dev/null",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

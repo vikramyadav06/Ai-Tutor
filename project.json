@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "upstream_repo": "OWNER/ai-tutor",
+  "upstream_repo": "vikramwebgarh/Ai-Tutor",
   "collector": {
     "enabled": false,
     "keys": [

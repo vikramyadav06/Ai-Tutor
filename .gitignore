@@ -1,0 +1,14 @@
+# Private to the learner: never committed, never pushed (TECH_SPEC §2)
+learner/
+.tutor/
+
+# Local tooling
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+test-results/
+allure-results/
+.env
+.claude/settings.local.json

@@ -1,0 +1,185 @@
+{
+  "subject": "class-9-science-exploration",
+  "title": "Class 9 Science (Exploration, 2026-27)",
+  "levels": [
+    "secondary"
+  ],
+  "explain_language": "en",
+  "_note": "TEST DATA. Shape of a catalog built from a learner's pasted contents page: 13 chapters, as NCERT's 2026-27 'Exploration' book has. The chapter titles are placeholders, not the book's real titles. No weightage: the learner gave no official marking scheme, so chapters count as equal.",
+  "syllabus": {
+    "board": "cbse",
+    "textbook": "Exploration (NCERT Science, Class 9)",
+    "edition": "2026-27",
+    "source": "learner",
+    "provisional": false
+  },
+  "questions": [
+    {
+      "id": "goal",
+      "question": "What's your main goal?",
+      "options": [
+        {
+          "value": "exam",
+          "label": "Do well in my exams"
+        },
+        {
+          "value": "understand",
+          "label": "Understand the ideas properly"
+        }
+      ]
+    },
+    {
+      "id": "focus",
+      "question": "Do you want extra practice questions?",
+      "multi": true,
+      "options": [
+        {
+          "value": "practice",
+          "label": "Yes, extra practice questions"
+        }
+      ]
+    }
+  ],
+  "modules": [
+    {
+      "id": "chapter-01",
+      "title": "Chapter 1 (placeholder title)",
+      "chapter": 1,
+      "hours": 2,
+      "kind": "core",
+      "requires": []
+    },
+    {
+      "id": "chapter-02",
+      "title": "Chapter 2 (placeholder title)",
+      "chapter": 2,
+      "hours": 3,
+      "kind": "core",
+      "requires": []
+    },
+    {
+      "id": "chapter-03",
+      "title": "Chapter 3 (placeholder title)",
+      "chapter": 3,
+      "hours": 3,
+      "kind": "core",
+      "requires": []
+    },
+    {
+      "id": "chapter-04",
+      "title": "Chapter 4 (placeholder title)",
+      "chapter": 4,
+      "hours": 2,
+      "kind": "core",
+      "requires": []
+    },
+    {
+      "id": "chapter-05",
+      "title": "Chapter 5 (placeholder title)",
+      "chapter": 5,
+      "hours": 3,
+      "kind": "core",
+      "requires": []
+    },
+    {
+      "id": "chapter-06",
+      "title": "Chapter 6 (placeholder title)",
+      "chapter": 6,
+      "hours": 2,
+      "kind": "core",
+      "requires": []
+    },
+    {
+      "id": "chapter-07",
+      "title": "Chapter 7 (placeholder title)",
+      "chapter": 7,
+      "hours": 3,
+      "kind": "core",
+      "requires": []
+    },
+    {
+      "id": "chapter-08",
+      "title": "Chapter 8 (placeholder title)",
+      "chapter": 8,
+      "hours": 3,
+      "kind": "core",
+      "requires": []
+    },
+    {
+      "id": "chapter-09",
+      "title": "Chapter 9 (placeholder title)",
+      "chapter": 9,
+      "hours": 2,
+      "kind": "core",
+      "requires": []
+    },
+    {
+      "id": "chapter-10",
+      "title": "Chapter 10 (placeholder title)",
+      "chapter": 10,
+      "hours": 3,
+      "kind": "core",
+      "requires": []
+    },
+    {
+      "id": "chapter-11",
+      "title": "Chapter 11 (placeholder title)",
+      "chapter": 11,
+      "hours": 2,
+      "kind": "core",
+      "requires": []
+    },
+    {
+      "id": "chapter-12",
+      "title": "Chapter 12 (placeholder title)",
+      "chapter": 12,
+      "hours": 3,
+      "kind": "core",
+      "requires": []
+    },
+    {
+      "id": "chapter-13",
+      "title": "Chapter 13 (placeholder title)",
+      "chapter": 13,
+      "hours": 2,
+      "kind": "core",
+      "requires": []
+    },
+    {
+      "id": "extra-practice",
+      "title": "Extra practice questions",
+      "hours": 3,
+      "kind": "focus",
+      "requires": []
+    },
+    {
+      "id": "exam-revision",
+      "title": "Exam revision",
+      "hours": 3,
+      "kind": "optional",
+      "requires": []
+    }
+  ],
+  "focus_areas": {
+    "practice": {
+      "label": "Extra practice questions",
+      "modules": [
+        "extra-practice"
+      ]
+    }
+  },
+  "rules": [
+    {
+      "when": {
+        "goal": "exam"
+      },
+      "add_modules": [
+        "exam-revision"
+      ],
+      "reason": "For your goal"
+    }
+  ],
+  "schedule_last": [
+    "exam-revision"
+  ]
+}

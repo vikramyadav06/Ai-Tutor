@@ -1,0 +1,134 @@
+{
+  "id": "chapter-01",
+  "title": "Chapter 1 (placeholder title)",
+  "subject": "class-9-science-exploration",
+  "level": "secondary",
+  "explain_language": "en",
+  "status": "unreviewed",
+  "syllabus": "TEST DATA: CBSE / Exploration (NCERT Science, Class 9), 2026-27, Chapter 1",
+  "intro": "Know what matter is, its three common states, and why matter changes state when heated or cooled.",
+  "planned_batches": [
+    "What matter is",
+    "States of matter",
+    "Changing state"
+  ],
+  "batches": [
+    {
+      "title": "What matter is",
+      "steps": [
+        {
+          "type": "learn",
+          "title": "Matter takes up space and has mass",
+          "body": "**Matter** is anything that has **mass** and takes up **space** (volume).\n\nAir, water, a pencil and your body are all matter. Light, sound and thoughts are not: they have no mass."
+        },
+        {
+          "type": "choice",
+          "question": "Which of these is matter?",
+          "options": [
+            "Sound",
+            "Light",
+            "Air",
+            "A shadow"
+          ],
+          "answer": 2,
+          "explain": "Air has mass and fills space (you can feel it fill a balloon). Sound, light and shadows have no mass."
+        },
+        {
+          "type": "learn",
+          "title": "Matter is made of tiny particles",
+          "body": "Matter is made of very small **particles** with **spaces** between them. The particles are always **moving**, and they **attract** each other.\n\nWhen sugar dissolves in water, its particles spread into the spaces between water particles."
+        },
+        {
+          "type": "fill",
+          "prompt": "Complete the sentence.",
+          "text": "Particles of matter are always ___ and have ___ between them.",
+          "answers": [
+            [
+              "moving",
+              "in motion"
+            ],
+            [
+              "spaces",
+              "space",
+              "gaps"
+            ]
+          ],
+          "explain": "Particles move all the time and have spaces between them; that is why sugar can dissolve and smells can spread."
+        },
+        {
+          "type": "explain",
+          "prompt": "In your own words: why does the smell of hot food reach you from far away, faster than the smell of cold food?",
+          "rubric": [
+            "Smell is carried by particles of matter that move",
+            "Particles spread (diffuse) through the spaces between air particles",
+            "Heat gives particles more energy, so they move and spread faster"
+          ],
+          "explain": "Hot food releases particles that move faster because they have more energy, so they diffuse through the air and reach you sooner."
+        }
+      ],
+      "notes": {
+        "points": [
+          "Matter has mass and takes up space.",
+          "Matter is made of tiny particles with spaces between them.",
+          "Particles are always moving and attract each other.",
+          "Heat makes particles move faster."
+        ],
+        "code": "Diffusion: particles of one substance spread into the spaces between particles of another.",
+        "remember": "Matter = mass + space, made of moving particles."
+      }
+    },
+    {
+      "title": "States of matter",
+      "steps": [
+        {
+          "type": "learn",
+          "title": "Solid, liquid, gas",
+          "body": "- **Solids** have a fixed shape and volume; particles are packed tightly.\n- **Liquids** have a fixed volume but take the shape of their container.\n- **Gases** have no fixed shape or volume; particles are far apart and move fast."
+        },
+        {
+          "type": "order",
+          "prompt": "Order the states from the strongest to the weakest attraction between particles.",
+          "items": [
+            "Solid",
+            "Liquid",
+            "Gas"
+          ],
+          "explain": "Particles in solids are held most tightly; in gases the attraction is weakest, so they spread out."
+        },
+        {
+          "type": "learn",
+          "title": "Changing state",
+          "body": "Heating gives particles energy. At the **melting point** a solid becomes a liquid; at the **boiling point** a liquid becomes a gas.\n\nWhile it melts or boils, the temperature stays the same: the heat goes into breaking the attraction between particles. This heat is called **latent heat**."
+        },
+        {
+          "type": "fill",
+          "prompt": "Complete the sentence.",
+          "text": "Ice melts at ___ °C and water boils at ___ °C at sea level.",
+          "answers": [
+            [
+              "0"
+            ],
+            [
+              "100"
+            ]
+          ],
+          "explain": "Pure ice melts at 0 °C and pure water boils at 100 °C at normal atmospheric pressure."
+        },
+        {
+          "type": "practice",
+          "title": "Try it at home",
+          "body": "Put an ice cube in a glass with a kitchen thermometer if you have one. Note the temperature every minute while it melts. Does it change while there is still ice in the glass? Write down what you see and why."
+        }
+      ],
+      "notes": {
+        "points": [
+          "Solid: fixed shape and volume. Liquid: fixed volume. Gas: neither.",
+          "Heating gives particles energy and can change the state.",
+          "Temperature stays constant while a substance melts or boils (latent heat)."
+        ],
+        "code": "Melting point of ice: 0 °C. Boiling point of water: 100 °C (at sea level).",
+        "remember": "More energy → particles move more → solid to liquid to gas."
+      }
+    }
+  ]
+}

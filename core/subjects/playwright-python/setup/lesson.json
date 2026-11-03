@@ -1,6 +1,10 @@
 {
   "id": "setup",
   "title": "Setup",
+  "subject": "playwright-python",
+  "level": "professional",
+  "explain_language": "en",
+  "status": "unreviewed",
   "intro": "Get Python, Playwright and the browsers installed, and run your first check that everything works.",
   "batches": [
     {
@@ -33,8 +37,8 @@
         {
           "type": "learn",
           "title": "Install Playwright and the browsers",
-          "body": "Two commands do it:\n\n- `pip install -r requirements.txt` installs the Python packages, including **pytest-playwright**.\n- `playwright install --with-deps` downloads Playwright's own builds of **Chromium, Firefox and WebKit**. `--with-deps` also installs system libraries the browsers need (mainly on Linux).",
-          "code": "pip install -r requirements.txt\nplaywright install --with-deps"
+          "body": "Two commands do it:\n\n- `pip install -r core/subjects/playwright-python/requirements.txt` installs the Python packages, including **pytest-playwright**.\n- `playwright install --with-deps` downloads Playwright's own builds of **Chromium, Firefox and WebKit**. `--with-deps` also installs system libraries the browsers need (mainly on Linux).",
+          "code": "pip install -r core/subjects/playwright-python/requirements.txt\nplaywright install --with-deps"
         },
         {
           "type": "order",
@@ -42,7 +46,7 @@
           "items": [
             "Create the venv: python -m venv venv",
             "Activate the venv",
-            "pip install -r requirements.txt",
+            "pip install -r core/subjects/playwright-python/requirements.txt",
             "playwright install --with-deps",
             "Run pytest to check it works"
           ],
@@ -52,9 +56,9 @@
           "type": "practice",
           "title": "Run a smoke test",
           "body": "Copy the exercise into `my-work/setup/` and complete it: open https://example.com and check the page title is **Example Domain**. If it passes, your setup works.",
-          "file": "course/setup/exercises/test_ex01_smoke.py",
+          "file": "core/subjects/playwright-python/setup/exercises/test_ex01_smoke.py",
           "command": "pytest my-work/setup -v",
-          "solution": "course/setup/solutions/test_ex01_smoke.py"
+          "solution": "core/subjects/playwright-python/setup/solutions/test_ex01_smoke.py"
         }
       ],
       "notes": {
@@ -64,7 +68,7 @@
           "pip installs the packages; `playwright install --with-deps` downloads Chromium, Firefox and WebKit.",
           "A one-line smoke test proves the whole setup works."
         ],
-        "code": "python -m venv venv\nsource venv/bin/activate   # Windows: venv\\Scripts\\activate\npip install -r requirements.txt\nplaywright install --with-deps",
+        "code": "python -m venv venv\nsource venv/bin/activate   # Windows: venv\\Scripts\\activate\npip install -r core/subjects/playwright-python/requirements.txt\nplaywright install --with-deps",
         "remember": "No activated venv is the most common reason for 'module not found' errors."
       }
     },
@@ -80,8 +84,8 @@
           "type": "choice",
           "question": "You start the Locators exercises. Where do you write your code?",
           "options": [
-            "course/locators/exercises/",
-            "course/locators/solutions/",
+            "core/subjects/playwright-python/locators/exercises/",
+            "core/subjects/playwright-python/locators/solutions/",
             "my-work/locators/",
             "Anywhere in the repo"
           ],

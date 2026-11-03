@@ -103,7 +103,7 @@ Data is collected in learners' copies of Repo A and moved to Repo B by Repo B's 
 2. At the end of the session `tools/collect.py` builds the shareable record from an allowlisted schema for the learner's mode.
 3. The PII scrubber removes anything personal; uncertain text becomes `[removed]`.
 4. Adult records are signed with the learner key. Every record is then encrypted with Repo B's public key (stored in Repo A's `project.json`).
-5. The agent commits the encrypted file to the `tutor-data` branch of the learner's fork and pushes it. The learner sees one line: "Session saved."
+5. The agent commits the encrypted file to the `tutor-data` branch of the learner's fork and pushes it. The learner sees nothing: this runs in the background at session end (TECH_SPEC §15).
 6. New lessons go through the same scrub and encryption into `tutor-data`.
 
 **In Repo B (CI, every hour):**

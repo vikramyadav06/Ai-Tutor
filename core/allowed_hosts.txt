@@ -1,0 +1,26 @@
+# Hosts lessons may link to. Subdomains are allowed (www.python.org matches python.org).
+# Add a host by pull request only; reviewers check it is a stable, public, reputable site.
+
+# Practice sites and examples
+example.com
+example.org
+saucedemo.com
+the-internet.herokuapp.com
+restful-booker.herokuapp.com
+
+# Official documentation
+python.org
+pypi.org
+playwright.dev
+pytest.org
+allurereport.org
+code.visualstudio.com
+git-scm.com
+docs.github.com
+developer.mozilla.org
+
+# Open educational references
+wikipedia.org
+khanacademy.org
+ncert.nic.in
+openstax.org

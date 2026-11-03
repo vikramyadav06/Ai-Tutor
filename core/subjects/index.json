@@ -1,0 +1,11 @@
+{
+  "_note": "Every subject the tutor has a catalog for. path = folder with catalog.json and one folder per module. Format: core/teaching/subject-catalog.md.",
+  "subjects": [
+    {
+      "id": "playwright-python",
+      "title": "Playwright with Python (web test automation)",
+      "levels": ["college", "professional", "self-learner"],
+      "path": "core/subjects/playwright-python"
+    }
+  ]
+}
