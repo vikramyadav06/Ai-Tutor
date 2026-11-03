@@ -1,6 +1,6 @@
 # Playwright with Python – Full Curriculum
 
-This is the full course outline. You don't need all of it: run `python start.py` and you get a personal plan (`learner/my-plan.md`) with only the modules that fit your role, goal and time. Module ids match `course/catalog.json`.
+This is the full course outline. You don't need all of it: the tutor asks a few questions and builds a personal plan (`learner/subjects/playwright-python/plan.md`) with only the modules that fit your role, goal and time. Module ids match `catalog.json` in this folder.
 
 ## Setup (~1 hour)
 
@@ -14,7 +14,7 @@ This is the full course outline. You don't need all of it: run `python start.py`
 
 ```
 <repo>/
-├── course/           # shareable lessons, exercises, solutions, quizzes (one folder per module)
+├── core/subjects/playwright-python/  # shareable lessons, exercises, solutions (one folder per module)
 ├── my-work/          # your exercise code, one folder per module
 ├── pages/            # Page Objects (login_page.py, cart_page.py) – from the POM module
 ├── tests/
