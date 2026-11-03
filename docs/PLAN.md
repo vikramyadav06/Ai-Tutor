@@ -207,6 +207,15 @@ Done when: an agent can onboard a new learner, teach two different subjects step
 
 Done when: a test session produces an encrypted file that contains no PII after decryption, and student-mode files carry no ID.
 
+### Phase 2.5 – Multi-device sync (Repo A)
+
+- [x] Encrypted archive of the learner's private folder, work and tutor-written lessons on an orphan `tutor-sync` branch of their own fork (TECH_SPEC §16)
+- [x] Adults: key from the learner code; students: a separate sync code, shown once
+- [x] Pull and merge at session start, push at session end, merges that never lose data
+- [x] New device: "Learned with this tutor before? Enter your code."
+
+Done when: two simulated devices (A, B, A) lose no data, a wrong code fails safely, a tampered archive is rejected, and nothing on the public branch is readable.
+
 ### Phase 3 – Ingest (Repo B)
 
 - [ ] Scheduled workflow: discover forks, fetch, size and rate checks, decrypt, validate, scrub again, verify signatures

@@ -62,3 +62,12 @@ def test_agents_md_consent_rules():
     for needle in ("student mode", "adult mode", "never ask and never mention sharing",
                    "show the learner code once", "delete my data"):
         assert needle.lower() in text.lower(), needle
+
+
+def test_agents_md_new_device_rules():
+    text = (REPO / "AGENTS.md").read_text(encoding="utf-8")
+    for needle in ("Learned with this tutor before? Enter your code.", "code moment", "Multi-device sync",
+                   "\"sync\": false"):
+        assert needle in text, needle
+    onboarding = (REPO / "core" / "teaching" / "onboarding.md").read_text(encoding="utf-8")
+    assert onboarding.index("Round 0") < onboarding.index("Round 1")

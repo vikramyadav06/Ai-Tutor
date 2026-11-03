@@ -4,6 +4,27 @@ Run this when `learner/profile.json` does not exist, before teaching anything. A
 rounds of 2-4 questions, not all at once. Use your question/choice UI if you have one,
 otherwise a numbered list in chat. Keep it friendly and quick (about 3 minutes).
 
+## Round 0: learned here before? (one question, once)
+
+The very first question, asked once: **"Have you learned with this tutor before, on another
+device? If you have your code, paste it here."** (Adults have a learner code `lrn-…`, students
+a sync code `sync-…`.)
+
+- **They paste a code:** `python tools/learner.py restore <code>`. It prints nothing when it
+  works: everything from their other device is now here (profile, plans, notes, progress,
+  their work, the lessons). Skip the rest of onboarding; greet them by name if they gave one
+  and pick up where they left off, as at the start of any session (`AGENTS.md` section 1).
+  - If it reports that it needs packages: ask in the same moment whether you may install
+    them (`python tools/learner.py install-sharing-packages`), then run `restore` again.
+  - "doesn't match any saved progress": say "That code didn't work. Could you check it?" and
+    let them try once more, or start fresh.
+  - "no saved progress was found": say so and start fresh; nothing is lost on their other
+    device.
+  - "needs-gh-auth": say once, "To bring your progress over, run `gh auth login`, then start
+    me again." Record `"gh_login_asked": true`. Their code is kept; it finishes by itself next
+    time.
+- **No code, or first time:** carry on with Round 1.
+
 ## Round 1: age, then what and why
 
 Ask the age band **first** (TECH_SPEC §9): it decides the learner's mode.
@@ -18,10 +39,6 @@ Ask the age band **first** (TECH_SPEC §9): it decides the learner's mode.
 Ask age as a band only. Never ask for a birth date. Under 18 = **student mode**, 18+ =
 **adult mode**. Teaching is identical; only what may be shared differs.
 
-Only when data sharing is switched on (`collector.enabled` is `true` in `project.json`), and
-only for 18+, also ask right after the age: "Have you learned with this tutor before, on
-another device? If you have your learner code, paste it." If they paste one, run
-`python tools/learner.py restore <code>` after `onboard`.
 
 ## Round 2: where they are
 
@@ -117,6 +134,22 @@ python tools/learner.py plan class-9-science-exploration --answers '{"goal": "ex
 A learner can study several subjects: run `plan` once per subject. Changing goals later:
 add them in the `model` part of a `record` call and re-run `plan`.
 
+## Your code (once, at the end of onboarding)
+
+After the plan is agreed, show every learner their code once, so they can continue on
+another device. This is the same moment for everyone (TECH_SPEC §16):
+
+1. `python tools/learner.py sharing-check`. If it lists packages, ask first: "So you can carry
+   on from another computer, I'd like to install two small Python packages in this folder.
+   Is that OK?" Yes: `python tools/learner.py install-sharing-packages`. No (or the install
+   fails): record `"sync": false` and show nothing; never ask again.
+2. `python tools/learner.py code` and show it with its warning. Adults get their learner code
+   (it also lets them delete shared data later); students get a sync code, which is only for
+   continuing on another device and is never sent anywhere.
+3. Record `"code_shown": true`. Never show it again unless they ask for it.
+
+If they later say "stop syncing" or "sync again": `"sync": false` / `true` in a `record` call.
+
 ## Consent (one question, once)
 
 **Only when `collector.enabled` is `true`** in `project.json`. While it is `false`, never ask
@@ -141,15 +174,14 @@ Ask it right after the age band (TECH_SPEC §9), at most once ever:
    - No: nothing is shared. Record `"sharing": false`.
 4. Record the answer in the next `record` call: `"sharing": true` (only once the packages are
    there) or `"sharing": false`.
-5. **Adults who said yes:** show their learner code once, with its warning:
-   `python tools/learner.py code`, then record `"code_shown": true`. "Keep this private, like a
-   password. It lets you continue on another device and delete your data."
+5. Adults have already seen their learner code (Your code, above); don't show it again.
 6. Later, "stop sharing" or "share again" → `"sharing": false` / `true` in a `record` call.
    "Delete my data" (adults) → `"delete_request": true`. Students' data can't be deleted
    because nothing links it to them; say so if asked.
 
-If sharing needs GitHub and `gh` isn't signed in, the private context will say so once; then
-say, at the end of a batch: "To share your sessions, run `gh auth login` when convenient."
+If sync or sharing needs GitHub and `gh` isn't signed in, the private context will say so once;
+then say, at the end of a batch: "To keep your progress safe across devices, run
+`gh auth login` when convenient."
 Record `"gh_login_asked": true`. Never ask again; teaching never waits for it.
 
 Never mention files, saving, or tools during onboarding. To the learner it is just a
