@@ -59,7 +59,7 @@ def session(root, profile, sharing=True):
     learner.plan_subject("python", {}, root=root)
     learner.set_sharing(sharing, root)
     tutor.record({k: v for k, v in BATCH.items() if k != "end"}, root=root)
-    log_session.end(root=root)  # (the real session end would collect with the repo's own config)
+    log_session.end(duration_min=20, root=root)  # (the real session end would collect with the repo's own config)
 
 
 def schema(name):
@@ -155,7 +155,7 @@ def test_student_record_carries_no_id(tutor_root, keypair, config):
 def test_two_student_records_cannot_be_linked(tutor_root, keypair, config):
     session(tutor_root, STUDENT)
     tutor.record({k: v for k, v in BATCH.items() if k != "end"}, root=tutor_root)
-    log_session.end(root=tutor_root)
+    log_session.end(duration_min=20, root=tutor_root)
     paths = collect.collect_pending(tutor_root, config)
     assert len(paths) == 2
     a, b = (decrypt(p, keypair)["record"] for p in paths)
