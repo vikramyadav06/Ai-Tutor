@@ -48,3 +48,10 @@ def test_agents_md_keeps_the_learner_in_a_tutoring_conversation():
     # the old instructions that told the tutor to announce bookkeeping are gone
     for banned in ("one short line", "mention it in", "log_session.py step", "tools/learner.py add-term"):
         assert banned not in text, banned
+
+
+def test_agents_md_review_rules():
+    text = (REPO / "AGENTS.md").read_text(encoding="utf-8")
+    for needle in ("no emojis", "one batch at a time", "board or university", "unreviewed",
+                   "Never guess", "highest-mark chapters first"):
+        assert needle in text, needle

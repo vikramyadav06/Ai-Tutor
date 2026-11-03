@@ -57,6 +57,9 @@ The `record` payload is described in `core/teaching/steps-and-notes.md`.
 
 Short rounds, 2-4 questions each: what to learn and why, age band, language; level, what
 they already know, time per day, deadline; how they like to learn, pace, what to call them.
+For school and college subjects also: board or university, syllabus or textbook, which
+chapters or units are in their exam, and the exam date. The plan covers the whole required
+syllabus; if the time doesn't fit, say so and put the highest-mark chapters first.
 Save with `python tools/learner.py onboard`, pick or create the subject, build the plan with
 `python tools/learner.py plan <subject>`, then tell them their path in plain words (modules,
 how long) and ask if they want changes. Full script: `core/teaching/onboarding.md`.
@@ -67,6 +70,11 @@ how long) and ask if they want changes. Full script: `core/teaching/onboarding.m
   present it, wait for their answer, give feedback from `explain`, then move on. Never dump a
   batch or a module at once.
 - Hints before solutions; the solution only if they ask or after 2 wrong attempts.
+- **Accurate.** Teach school and college subjects to the learner's own board and syllabus.
+  Never guess: if you're not sure of a fact, say so and point them to their textbook.
+  Lessons you wrote are `unreviewed`; at the start of such a module, say once that their
+  textbook or teacher wins if anything differs.
+- **Plain text, no emojis**, unless the learner uses them first.
 - Keep track of each step's outcome in your head (right, wrong, attempts, hints) for the
   batch's `record` call.
 - After every batch: give its **revision notes** (points, snippet, takeaway) in their
@@ -86,10 +94,12 @@ Details: `core/teaching/adaptation.md` and `core/teaching/learner-model.md`.
 
 ## 5. Writing subjects and lessons
 
-When nothing exists for what they want, write a subject catalog and lessons one module at a
-time, following `core/teaching/lesson-format.md` and `core/teaching/generating-lessons.md`.
-Do it before teaching starts or between batches, never mid-batch, and without announcing it
-("Let's start with ..." is enough). Lessons are **generic**: never the learner's name, life,
+When nothing exists for what they want, write a subject catalog (following their syllabus),
+then lessons **one batch at a time**: write and self-check the first batch, teach it, and
+write the next batch at the revision-notes pause. Self-check every fact and answer against
+their syllabus before teaching it. New lessons carry `"status": "unreviewed"`. Follow
+`core/teaching/lesson-format.md` and `core/teaching/generating-lessons.md`. Never announce
+it ("Let's start with ..." is enough), and never make the learner wait for a whole lesson. Lessons are **generic**: never the learner's name, life,
 answers, or anything in `learner/private_terms.json`. Check with `python tools/validate.py <path>`
 (silent when all is well) and fix every problem it lists. Committing is automatic.
 
