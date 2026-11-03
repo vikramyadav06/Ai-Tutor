@@ -110,8 +110,11 @@ def test_fourteen_year_old_learning_class_9_science(tutor_root, run_tool):
     assert "weightage" not in first  # no official marking scheme given: chapters count as equal
     assert plan["modules"][1]["written"] is False
 
-    # student mode: no identity of any kind
-    assert not (tutor_root / ".tutor").exists()
+    # student mode: no identity; only a separate random secret for multi-device sync
+    assert not (tutor_root / ".tutor" / "identity.json").exists()
+    sync_file = tutor_root / ".tutor" / "sync.json"
+    assert set(read(sync_file)) == {"sync_secret_b64", "created"}
+    assert sync_file.stat().st_mode & 0o777 == 0o600
 
 
 def test_two_subjects_for_one_learner(tutor_root, learner_tool):

@@ -184,6 +184,7 @@ def onboard(answers, root=None):
         "explain_language": language,
         "hours_per_day": check_hours(answers.get("hours_per_day", 1)),
         "sharing": False,
+        "sync": True,
         "created": existing.get("created") or today(),
         "subjects": existing.get("subjects", []),
     }
@@ -201,13 +202,14 @@ def onboard(answers, root=None):
     if old_model:  # re-onboarding keeps what was learned about the learner
         for key in ("strengths", "weak_areas", "what_works"):
             model[key] = old_model.get(key, [])
-    for key in ("sharing", "sharing_asked", "sharing_changed", "code_shown", "gh_login_asked"):
+    for key in ("sharing", "sharing_asked", "sharing_changed", "code_shown", "gh_login_asked", "sync"):
         if key in existing:
             profile[key] = existing[key]
     if profile["mode"] == "student":
         # a student has no identity: remove one left from an earlier (adult) answer
         if identity_path(root).exists():
             identity_path(root).unlink()
+        create_sync_secret(root)  # a separate random code, only for sync
     write_json(learner_dir(root) / "profile.json", profile)
     write_json(learner_dir(root) / "model.json", model)
     if profile["mode"] == "adult":
@@ -327,26 +329,118 @@ def learner_code(root=None):
     return f"{identity['learner_id']}.{base64.b32encode(seed).decode().rstrip('=')}"
 
 
-def restore_identity(code, root=None):
-    """Recreate .tutor/identity.json from a learner code typed on another device."""
+SYNC_CODE = re.compile(r"^sync-[A-Z2-7]{52}$")
+SYNC_WARNING = ("Keep this private, like a password. It lets you continue on another device. "
+                "It is only for that and is never sent anywhere.")
+
+
+def sync_secret_path(root=None):
+    return tutor_dir(root) / "sync.json"
+
+
+def create_sync_secret(root=None):
+    """A student's random sync secret (students have no learner id). Only for sync."""
+    import base64
+    import secrets
+    existing = read_json(sync_secret_path(root))
+    if existing:
+        return existing
+    data = {"sync_secret_b64": base64.b64encode(secrets.token_bytes(32)).decode(), "created": today()}
+    write_private_json(sync_secret_path(root), data)
+    return data
+
+
+def any_code(root=None):
+    """The code to show once: the adult's learner code, or the student's sync code."""
+    import base64
+    if read_json(identity_path(root)):
+        return learner_code(root), CODE_WARNING
+    data = read_json(sync_secret_path(root))
+    if data:
+        secret = base64.b64decode(data["sync_secret_b64"])
+        return "sync-" + base64.b32encode(secret).decode().rstrip("="), SYNC_WARNING
+    raise TutorError("no code on this device yet")
+
+
+def _parse_code(code):
+    """(kind, 32-byte secret, learner_id or None) from a learner code or a sync code."""
     import base64
     code = "".join(str(code).split())
+    if code.lower().startswith("sync-"):
+        body = code[5:].upper()
+        if not SYNC_CODE.match("sync-" + body):
+            raise TutorError("that doesn't look like a code from this tutor")
+        return "student", base64.b32decode(body + "=" * (-len(body) % 8)), None
     learner_id, _, secret = code.partition(".")
     if not LEARNER_ID.match(learner_id) or not secret:
-        raise TutorError("that doesn't look like a learner code")
+        raise TutorError("that doesn't look like a code from this tutor")
     try:
         seed = base64.b32decode(secret.upper() + "=" * (-len(secret) % 8))
     except (ValueError, base64.binascii.Error):
-        raise TutorError("that doesn't look like a learner code")
+        raise TutorError("that doesn't look like a code from this tutor")
     if len(seed) != 32:
-        raise TutorError("that doesn't look like a learner code")
+        raise TutorError("that doesn't look like a code from this tutor")
+    return "adult", seed, learner_id
+
+
+def restore_identity(code, root=None):
+    """Recreate .tutor/identity.json from a learner code, without syncing (kept for tools)."""
+    import base64
+    kind, seed, learner_id = _parse_code(code)
+    if kind != "adult":
+        raise TutorError("that is a sync code, not a learner code")
     identity = {"learner_id": learner_id, "signing_seed_b64": base64.b64encode(seed).decode(), "created": today()}
     write_private_json(identity_path(root), identity)
-    profile = read_json(learner_dir(root) / "profile.json")
-    if profile is not None:
-        profile["code_shown"] = True  # they already have it
-        write_json(learner_dir(root) / "profile.json", profile)
     return identity
+
+
+def restore(code, root=None, gh=None):
+    """A learner who learned on another device enters their code: save it, then bring
+    everything over from their tutor-sync branch. A wrong code changes nothing."""
+    import base64
+    root = Path(root or ROOT)
+    kind, secret, learner_id = _parse_code(code)
+    if missing_packages():
+        raise TutorError(f"needs packages {', '.join(missing_packages())}: ask the learner in this same moment "
+                         "whether you may install them (install-sharing-packages), then run restore again")
+    import sync
+    files = (identity_path(root), sync_secret_path(root), sync._state_path(root))
+    backup = {f: f.read_bytes() if f.exists() else None for f in files}
+
+    def roll_back():
+        for f, data in backup.items():
+            if data is None:
+                f.unlink(missing_ok=True)
+            else:
+                write_private_json(f, json.loads(data))
+
+    if kind == "adult":
+        write_private_json(identity_path(root), {"learner_id": learner_id, "created": today(),
+                                                 "signing_seed_b64": base64.b64encode(secret).decode()})
+    else:
+        write_private_json(sync_secret_path(root), {"sync_secret_b64": base64.b64encode(secret).decode(),
+                                                    "created": today()})
+    try:
+        result = sync.pull(root, gh=gh, secret=secret)
+    except Exception:
+        roll_back()
+        raise
+    if result == "needs-gh-auth":
+        # keep the code: the next session start retries once gh is signed in
+        raise TutorError("needs-gh-auth: ask the learner (once) to run `gh auth login`, then start again")
+    if result == "no-git":
+        roll_back()
+        raise TutorError("this copy of the tutor isn't a git clone, so progress can't be brought over; "
+                         "the learner can clone their fork and try again, or start fresh here")
+    if result == "wrong-key":
+        roll_back()
+        raise TutorError("that code doesn't match any saved progress; check it and try again")
+    if not result.startswith("merged:"):
+        roll_back()
+        raise TutorError("no saved progress was found for that code")
+    if (learner_dir(root) / "profile.json").exists():
+        set_profile_flag("code_shown", True, root)  # they already have it
+    return result
 
 
 def set_profile_flag(key, value, root=None):
@@ -877,8 +971,10 @@ def main(argv=None):
     p = sub.add_parser("add-term", help="remember a personal term so it never leaves this machine")
     p.add_argument("term")
     sub.add_parser("init", help="create the adult learner id and signing key (done by onboard)")
-    sub.add_parser("code", help="print the learner code, to show the learner once")
-    p = sub.add_parser("restore", help="recreate the identity from a learner code")
+    sub.add_parser("code", help="print the learner code (adults) or sync code (students), to show once")
+    p = sub.add_parser("sync", help="turn multi-device sync on or off")
+    p.add_argument("state", choices=["on", "off"])
+    p = sub.add_parser("restore", help="continue from another device: a learner code or a sync code")
     p.add_argument("learner_code")
     p = sub.add_parser("sharing", help="the learner's answer to the consent question")
     p.add_argument("state", choices=["on", "off"])
@@ -910,11 +1006,13 @@ def main(argv=None):
         elif args.cmd == "init":
             init_identity()
         elif args.cmd == "code":
-            code = learner_code()
+            code, warning = any_code()
             set_profile_flag("code_shown", True)
-            print(f"{code}\n{CODE_WARNING}")
+            print(f"{code}\n{warning}")
         elif args.cmd == "restore":
-            restore_identity(args.learner_code)
+            restore(args.learner_code)
+        elif args.cmd == "sync":
+            set_profile_flag("sync", args.state == "on")
         elif args.cmd == "sharing":
             set_sharing(args.state == "on")
         elif args.cmd == "mode":
