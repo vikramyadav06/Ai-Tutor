@@ -50,6 +50,7 @@ tools/
   tutor.py                     # one quiet record call per batch; session hooks (§15)
   tutorlog.py                  # failures → learner/tutor.log, retry queue (§15)
   sync.py                      # encrypted multi-device sync on tutor-sync (§16)
+  update.py                    # course updates from upstream main at session start (§17)
   collect.py                   # build record → scrub → sign → encrypt → outbox
   publish.py                   # commit outbox to tutor-data branch and push
   scrub.py                     # PII scrubber (byte-identical copy lives in Repo B)
@@ -424,3 +425,38 @@ hooks: **pull and merge at session start** (`startup`, `clear`), **push at sessi
   merged. If the fork needs `gh` first, the code is kept and the next session start retries.
 - **Off switch:** `learner.py sync off` (or `"sync": false` in a `record` call).
 - **Repo B never reads `tutor-sync`** (§10).
+
+## 17. Course updates (Phase 2.5, owner requirement)
+
+Learners get newly reviewed lessons and tutor updates automatically. `tools/update.py` runs in
+the session-start hook (`startup`, `clear`), before the sync pull; agents without hooks run it
+once before greeting. Same silence rules as §15.
+
+- **Source:** `main` of `https://github.com/<upstream_repo>.git` (from `project.json`), fetched
+  anonymously into `refs/tutor-upstream/main`; no remote names are assumed.
+- **What updates:** `core/`, `tools/`, `.claude/`, `.github/`, `docs/`, `AGENTS.md`, `CLAUDE.md`,
+  `README.md`, `project.json` (new collector keys arrive this way), `requirements-*.txt`,
+  `pytest.ini`, `.gitignore`. **Never** `learner/`, `my-work/` or `.tutor/`, even if upstream
+  has such files.
+- **History is never rewritten.** A true `git merge --ff-only` when the learner's branch has no
+  commits of its own and a clean tree. Otherwise (the usual case, since session end commits the
+  learner's work) each changed course file gets a three-way check against the last applied
+  upstream commit (`.tutor/update_state.json`): unchanged here → take upstream; changed here and
+  upstream → keep the local file and log it (the update is retried next session); then one new
+  commit `tutor: course update to <sha>` with those files only. Never rebase, reset or force.
+- **Reviewed lessons:** when upstream brings a `"status": "reviewed"` lesson where the learner has
+  an unreviewed one (or a file the tutor wrote here), the reviewed one is used from then on, the
+  local copy is kept under `learner/history/<stamp>-before-update/`, and the learner's place in
+  that chapter is mapped across: `plan.json` records `batches_done` by title; done batches carry
+  over by same or similar title, otherwise by the same share of the chapter rounded down. The
+  chapter's status is unchanged. Sync never replaces a reviewed lesson with an unreviewed copy,
+  and reviewed lessons are never proposed back to Repo B.
+- **Reuse before writing:** `learner.py reuse-lesson <subject> <module>` finds a reviewed lesson
+  for the same chapter: the subject's own, or one in another subject built from the same board,
+  textbook and edition with the same chapter number (copied in place). Only if none fits does
+  the tutor write one.
+- **Failures:** offline, a busy git state (merge, rebase, detached HEAD), no common history, or a
+  conflict: teaching continues on the current copy and the update is retried next session.
+  A developer checkout (no `learner/profile.json`) is never updated.
+- **Trust:** updated tools and hooks run from the next session on, so `main` must stay protected
+  (required review and checks, §11 and OWNER_CHECKLIST).

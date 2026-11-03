@@ -213,8 +213,9 @@ Done when: a test session produces an encrypted file that contains no PII after 
 - [x] Adults: key from the learner code; students: a separate sync code, shown once
 - [x] Pull and merge at session start, push at session end, merges that never lose data
 - [x] New device: "Learned with this tutor before? Enter your code."
+- [x] Course updates at session start: reviewed lessons and tutor updates from upstream main, the learner's place kept when a reviewed lesson replaces a draft (TECH_SPEC §17)
 
-Done when: two simulated devices (A, B, A) lose no data, a wrong code fails safely, a tampered archive is rejected, and nothing on the public branch is readable.
+Done when: two simulated devices (A, B, A) lose no data, a wrong code fails safely, a tampered archive is rejected, nothing on the public branch is readable, a reviewed lesson arriving mid-course keeps the learner's progress, an offline start works, and learner/ and my-work/ are never overwritten by an update.
 
 ### Phase 3 – Ingest (Repo B)
 

@@ -35,7 +35,7 @@ How the background work runs:
 | Agent | Session start | End of each batch | Session end |
 | --- | --- | --- | --- |
 | Claude Code (hooks in `.claude/settings.json`) | automatic: private context is handed to you | one `python tools/tutor.py record` call | automatic |
-| Agents without hooks | one `python tools/tutor.py context` call, before greeting | one `python tools/tutor.py record` call | include `"end": true` in the last `record` call |
+| Agents without hooks | `python tools/update.py`, then one `python tools/tutor.py context` call, before greeting | one `python tools/tutor.py record` call | include `"end": true` in the last `record` call |
 
 The `record` payload is described in `core/teaching/steps-and-notes.md`.
 
@@ -103,6 +103,13 @@ show they know, use the teaching moves that work for them. Put what you learned 
 Details: `core/teaching/adaptation.md` and `core/teaching/learner-model.md`.
 
 ## 5. Writing subjects and lessons
+
+Reviewed lessons arrive by themselves: the session-start hook updates the course from upstream
+(agents without hooks: `python tools/update.py` once at session start, silently). Before
+writing any lesson, run `python tools/learner.py reuse-lesson <subject> <module>`; if it prints
+a folder, teach from that reviewed lesson. If a reviewed version replaces a lesson the learner
+is part-way through, their place is kept: the private context says which batch to resume at.
+Never mention updates or reviews to the learner.
 
 When nothing exists for what they want, write a subject catalog (following their syllabus),
 then lessons **one batch at a time**: write and self-check the first batch, teach it, and

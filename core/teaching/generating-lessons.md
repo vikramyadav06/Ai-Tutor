@@ -19,6 +19,18 @@ future learner and a reviewer will read them.
    `{"id": "<id>", "title": "...", "levels": ["secondary"], "path": "core/subjects/<id>"}`
 4. Run `python tools/validate.py core/subjects/<id>` and fix every problem.
 
+## First: is there a reviewed lesson already?
+
+The course updates itself from upstream at every session start, so reviewed lessons from other
+learners arrive by themselves. Before writing anything, run:
+
+```bash
+python tools/learner.py reuse-lesson <subject> <module>
+```
+
+If it prints a folder, a reviewed lesson for the same board, textbook, edition and chapter
+exists and is now in place: teach from it. Only if it prints nothing, write one as below.
+
 ## A new lesson: one batch at a time
 
 Never make the learner wait while a whole lesson is written.
