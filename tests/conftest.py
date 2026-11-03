@@ -46,6 +46,7 @@ def tutor_root(tmp_path):
     generated them), and no learner/ or .tutor/ yet."""
     root = tmp_path / "repo"
     shutil.copytree(REPO / "core", root / "core")
+    shutil.copy(REPO / "project.json", root / "project.json")
     index_path = root / "core" / "subjects" / "index.json"
     index = json.loads(index_path.read_text(encoding="utf-8"))
     for folder in sorted((FIXTURES / "subjects").iterdir()):

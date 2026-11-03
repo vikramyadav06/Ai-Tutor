@@ -1,0 +1,184 @@
+#!/usr/bin/env python3
+"""
+Commit the encrypted outbox to the orphan `tutor-data` branch of the learner's fork and push
+that branch only (TECH_SPEC §8). Runs invisibly at session end (tools/tutor.py finish).
+
+    python tools/publish.py
+
+- The branch is built in a separate worktree at .tutor/worktree, so the learner's own
+  working tree and branches are never touched.
+- It holds only <key_id>/<YYYY-MM-DD>/<uuid hex>.bin files.
+- Commits use a neutral identity (tutor <tutor@invalid>) and day-rounded dates.
+- Only `tutor-data` is ever pushed; `main` and every other branch are never pushed.
+- If origin is the upstream Repo A, it forks with `gh` (origin becomes the fork, the
+  upstream becomes `upstream`). If gh is missing or signed out, files stay in the outbox,
+  the tutor asks the learner once to run `gh auth login`, and it retries next session.
+
+Does nothing while collector.enabled is false. Prints nothing; failures go to
+learner/tutor.log and are retried next session.
+"""
+import datetime as dt
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import collect  # noqa: E402
+import learner  # noqa: E402
+import tutorlog  # noqa: E402
+
+ROOT = Path(os.environ.get("TUTOR_ROOT") or Path(__file__).resolve().parents[1])
+BRANCH = "tutor-data"
+DATA_PATH = re.compile(r"^k\d+/\d{4}-\d{2}-\d{2}/[0-9a-f]{32}\.bin$")
+NEUTRAL = {"GIT_AUTHOR_NAME": "tutor", "GIT_AUTHOR_EMAIL": "tutor@invalid",
+           "GIT_COMMITTER_NAME": "tutor", "GIT_COMMITTER_EMAIL": "tutor@invalid"}
+NEEDS_GH = "needs_gh_auth"
+
+
+class PublishError(Exception):
+    pass
+
+
+def git(cwd, *args, env=None, timeout=60, check=True):
+    full_env = {**os.environ, "GIT_TERMINAL_PROMPT": "0", **(env or {})}
+    result = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, env=full_env, timeout=timeout)
+    if check and result.returncode != 0:
+        raise PublishError(f"git {args[0]} failed: {result.stderr.strip()[:300]}")
+    return result
+
+
+def outbox_files(root):
+    outbox = learner.tutor_dir(root) / "outbox"
+    if not outbox.exists():
+        return []
+    files = []
+    for path in sorted(outbox.rglob("*.bin")):
+        rel = path.relative_to(outbox).as_posix()
+        if DATA_PATH.match(rel):
+            files.append((rel, path))
+        else:
+            tutorlog.log(root, "publish", f"ignored an outbox file with an unexpected name: {rel}")
+    return files
+
+
+def is_upstream(url, upstream_repo):
+    url = (url or "").strip().lower().rstrip("/")
+    url = url[:-4] if url.endswith(".git") else url
+    repo = upstream_repo.lower()
+    return url.endswith("github.com/" + repo) or url.endswith("github.com:" + repo)
+
+
+def ensure_fork(root, upstream_repo, gh=None):
+    """Make origin the learner's own fork. Returns False if gh can't do it yet."""
+    origin = git(root, "remote", "get-url", "origin", check=False).stdout.strip()
+    if origin and not is_upstream(origin, upstream_repo):
+        return True
+    gh = gh or shutil.which("gh")
+    flag = learner.tutor_dir(root) / NEEDS_GH
+    if not gh or subprocess.run([gh, "auth", "status"], cwd=root, capture_output=True, timeout=30).returncode != 0:
+        flag.parent.mkdir(parents=True, exist_ok=True)
+        flag.write_text("gh is missing or signed out\n", encoding="utf-8")
+        return False
+    done = subprocess.run([gh, "repo", "fork", "--remote", "--remote-name", "origin"], cwd=root,
+                          capture_output=True, text=True, timeout=120)
+    if done.returncode != 0:
+        raise PublishError(f"gh repo fork failed: {done.stderr.strip()[:300]}")
+    if flag.exists():
+        flag.unlink()
+    return True
+
+
+def remote_has_branch(root):
+    out = git(root, "ls-remote", "--heads", "origin", BRANCH, timeout=60, check=False)
+    return out.returncode == 0 and bool(out.stdout.strip())
+
+
+def ensure_worktree(root):
+    """A worktree on the orphan tutor-data branch at .tutor/worktree."""
+    wt = learner.tutor_dir(root) / "worktree"
+    if wt.exists() and (wt / ".git").exists():
+        head = git(wt, "symbolic-ref", "--short", "HEAD", check=False).stdout.strip()
+        if head == BRANCH:
+            return wt
+        git(root, "worktree", "remove", "--force", str(wt), check=False)
+    if wt.exists():
+        shutil.rmtree(wt)
+    git(root, "worktree", "prune", check=False)
+    has_local = git(root, "rev-parse", "--verify", "--quiet", f"refs/heads/{BRANCH}", check=False).returncode == 0
+    if not has_local and remote_has_branch(root):
+        git(root, "fetch", "--no-tags", "origin", f"+refs/heads/{BRANCH}:refs/heads/{BRANCH}")
+        has_local = True
+    if has_local:
+        git(root, "worktree", "add", "--quiet", str(wt), BRANCH)
+    else:
+        git(root, "worktree", "add", "--quiet", "--detach", str(wt))
+        git(wt, "checkout", "--quiet", "--orphan", BRANCH)
+        git(wt, "rm", "-r", "--quiet", "--cached", "--ignore-unmatch", ".")
+        git(wt, "clean", "-fdxq")
+    return wt
+
+
+def check_branch_contents(wt):
+    files = git(wt, "ls-files").stdout.split()
+    bad = [f for f in files if not DATA_PATH.match(f)]
+    if bad:
+        raise PublishError(f"{BRANCH} would contain non-data files: {bad[:3]}")
+
+
+def publish(root=None, config=None, gh=None, day=None):
+    """Returns what happened: disabled, nothing, needs-gh-auth or pushed:<n>."""
+    root = Path(root or ROOT)
+    config = config or collect.load_config(root)
+    if not config.get("enabled"):
+        return "disabled"
+    if config.get("data_branch", BRANCH) != BRANCH:
+        raise PublishError("data_branch must be tutor-data")
+    files = outbox_files(root)
+    if not files:
+        return "nothing"
+    if not (root / ".git").exists():
+        raise PublishError("not a git repository")
+    upstream = json.loads((root / "project.json").read_text(encoding="utf-8"))["upstream_repo"]
+    if not ensure_fork(root, upstream, gh):
+        return "needs-gh-auth"
+
+    wt = ensure_worktree(root)
+    for rel, src in files:
+        dest = wt / rel
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(src, dest)
+        git(wt, "add", "--", rel)
+    check_branch_contents(wt)
+    day = day or dt.datetime.now(dt.timezone.utc).date().isoformat()
+    stamp = f"{day}T00:00:00Z"
+    env = {**NEUTRAL, "GIT_AUTHOR_DATE": stamp, "GIT_COMMITTER_DATE": stamp}
+    if git(wt, "diff", "--cached", "--quiet", check=False).returncode != 0:
+        git(wt, "-c", "commit.gpgsign=false", "commit", "--quiet", "--no-verify", "-m", "data", env=env)
+
+    refspec = f"refs/heads/{BRANCH}:refs/heads/{BRANCH}"  # this branch and nothing else
+    pushed = git(wt, "push", "--quiet", "--no-verify", "origin", refspec, env=env, timeout=120, check=False)
+    if pushed.returncode != 0:
+        # someone (the learner's other device) pushed first: replay ours on top, once
+        git(wt, "fetch", "--no-tags", "origin", f"+refs/heads/{BRANCH}:refs/remotes/origin/{BRANCH}")
+        git(wt, "-c", "commit.gpgsign=false", "rebase", "--quiet", f"refs/remotes/origin/{BRANCH}", env=env)
+        check_branch_contents(wt)
+        git(wt, "push", "--quiet", "--no-verify", "origin", refspec, env=env, timeout=120)
+    for _, src in files:
+        src.unlink()
+    return f"pushed:{len(files)}"
+
+
+def main():
+    try:
+        publish()
+    except Exception as exc:
+        tutorlog.log(ROOT, "publish", f"failed, will retry next session: {exc}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

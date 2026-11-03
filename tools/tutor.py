@@ -44,7 +44,11 @@ import tutorlog  # noqa: E402
 ROOT = Path(os.environ.get("TUTOR_ROOT") or Path(__file__).resolve().parents[1])
 KNOWN_KEYS = {"subject", "module", "agent", "session_id", "steps", "moves", "signals", "exercises",
               "private_terms", "batch_done", "notes_extra", "module_done", "model", "progress_entry",
-              "feedback", "end"}
+              "feedback", "end",
+              # the three allowed interruptions, recorded once each (TECH_SPEC §15)
+              "sharing", "code_shown", "gh_login_asked",
+              # the learner asked to delete their shared data (adults)
+              "delete_request"}
 EXPECTED = (learner.TutorError, log_session.LogError, KeyError, TypeError, ValueError)
 COMMIT_PATHS = ("my-work", "core/subjects")
 COMMIT_MESSAGE = "tutor: save work and lessons"
@@ -85,6 +89,11 @@ def record(payload, root=None):
 
     for term in payload.get("private_terms", []):
         attempt("private_terms", term, lambda t=term: learner.add_private_term(t, root))
+    if "sharing" in payload:
+        attempt("sharing", payload["sharing"], lambda: learner.set_sharing(bool(payload["sharing"]), root), many=False)
+    for flag in ("code_shown", "gh_login_asked"):
+        if payload.get(flag):
+            attempt(flag, True, lambda f=flag: learner.set_profile_flag(f, True, root), many=False)
 
     # the session these events belong to: the one given, the open one, or a new one
     sid = payload.get("session_id")
@@ -155,6 +164,18 @@ def record(payload, root=None):
         attempt("feedback", fb, lambda: log_session.feedback(fb["rating"], fb.get("comment"),
                                                               session_id=sid, root=root), many=False)
 
+    if payload.get("delete_request"):
+        def delete():
+            import collect
+            collect.request_delete(root)
+            import publish
+            publish.publish(root)
+        try:
+            delete()
+        except Exception as exc:
+            tutorlog.log(root, "record", f"delete request not sent yet: {exc}")
+            failed["delete_request"] = True
+
     if payload.get("end"):
         finish(root, session_id=sid)
 
@@ -201,8 +222,8 @@ def add_progress_entry(subject, entry, root):
 # ---------- end of session: close the log, commit locally ----------
 
 def finish(root=None, session_id=None):
-    """End the open session and commit the learner's work and new lessons locally.
-    Idempotent and silent. Phase 2 adds collect + publish here."""
+    """End the open session, commit the learner's work and new lessons locally, then (if the
+    learner agreed and collection is switched on) collect and publish. Idempotent, silent."""
     root = Path(root or ROOT)
     if not has_learner(root):
         return  # not a learner's copy (e.g. a developer working on the repo): do nothing
@@ -213,6 +234,25 @@ def finish(root=None, session_id=None):
     except Exception as exc:
         tutorlog.log(root, "finish", f"could not close the session log: {exc!r}")
     commit_work(root)
+    share(root)
+
+
+def share(root):
+    """collect -> publish. Never raises; what can't be done now is retried next session."""
+    try:
+        import collect
+        import publish
+    except ImportError as exc:  # e.g. pynacl/jsonschema not installed yet
+        tutorlog.log(root, "share", f"sharing tools unavailable: {exc}")
+        return
+    try:
+        collect.collect_pending(root)
+    except Exception as exc:
+        tutorlog.log(root, "collect", f"failed, will retry next session: {exc!r}")
+    try:
+        publish.publish(root)
+    except Exception as exc:
+        tutorlog.log(root, "publish", f"failed, will retry next session: {exc}")
 
 
 def git(root, *args, timeout=30):
@@ -283,9 +323,33 @@ def context(root=None):
                      f"don't: {', '.join(patterns['moves_that_dont']) or '-'}.")
         if patterns["sessions"] % 3 == 0:
             lines.append("This is a revision session: start with a 5-question quiz on earlier modules and weak areas.")
+    lines += interruptions_due(root)
     lines.append("Bookkeeping: one `python tools/tutor.py record --json '...'` call at the end of each batch "
                  "(core/teaching/steps-and-notes.md), never between steps, never mentioned.")
     return "\n".join(lines)
+
+
+def interruptions_due(root):
+    """The only three things that may interrupt teaching, each at most once (TECH_SPEC §15)."""
+    profile = learner.read_json(Path(root) / "learner" / "profile.json", {})
+    out = []
+    try:
+        enabled = json.loads((Path(root) / "project.json").read_text(encoding="utf-8"))["collector"]["enabled"]
+    except (OSError, KeyError, json.JSONDecodeError):
+        enabled = False
+    if enabled and not profile.get("sharing_asked"):
+        out.append("Due once, at a natural pause before teaching: the consent question "
+                   "(core/teaching/onboarding.md, Consent). First run `python tools/learner.py sharing-check`: "
+                   "if it lists packages, ask in the same moment whether you may install them. "
+                   "Record the answer as \"sharing\" in record.")
+    if (enabled and profile.get("sharing") and profile.get("mode") == "adult" and not profile.get("code_shown")
+            and (Path(root) / ".tutor" / "identity.json").exists()):
+        out.append("Due once: show the learner code (`python tools/learner.py code`) with its warning.")
+    if (enabled and profile.get("sharing") and not profile.get("gh_login_asked")
+            and (Path(root) / ".tutor" / "needs_gh_auth").exists()):
+        out.append("Due once, at the end of a batch: say \"To share your sessions, run `gh auth login` "
+                   "when convenient.\" Record \"gh_login_asked\": true. Never ask again.")
+    return out
 
 
 def session_start(event, root=None):
@@ -297,6 +361,12 @@ def session_start(event, root=None):
         except OSError:
             pass
         if source in ("startup", "clear"):
+            profile = learner.read_json(root / "learner" / "profile.json", {})
+            if profile.get("mode") == "adult" and not learner.identity_path(root).exists():
+                try:
+                    learner.init_identity(root)  # e.g. pynacl was installed since onboarding
+                except Exception as exc:
+                    tutorlog.log(root, "identity", f"not created yet: {exc!r}")
             finish(root)          # catch up if the last session ended without its hook
             retry_pending(root)
     return json.dumps({"hookSpecificOutput": {"hookEventName": "SessionStart",

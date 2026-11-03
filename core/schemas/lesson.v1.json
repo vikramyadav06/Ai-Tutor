@@ -1,0 +1,317 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "lesson.v1",
+  "title": "A lesson written by a tutor, generic, no learner information",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "lesson.v1"
+    },
+    "subject": {
+      "$ref": "#/$defs/slug"
+    },
+    "module": {
+      "$ref": "#/$defs/slug"
+    },
+    "level": {
+      "enum": [
+        "primary",
+        "middle",
+        "secondary",
+        "college",
+        "postgraduate",
+        "professional",
+        "self-learner"
+      ]
+    },
+    "explain_language": {
+      "type": "string",
+      "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$",
+      "maxLength": 35
+    },
+    "lesson": {
+      "$ref": "#/$defs/lesson"
+    },
+    "files": {
+      "type": "object",
+      "maxProperties": 20,
+      "propertyNames": {
+        "type": "string",
+        "maxLength": 120,
+        "pattern": "^(exercises|solutions)/[A-Za-z0-9_][A-Za-z0-9_.-]{0,99}$",
+        "not": {
+          "anyOf": [
+            {
+              "pattern": "\\.\\."
+            },
+            {
+              "pattern": "\\\\"
+            },
+            {
+              "pattern": "^/"
+            },
+            {
+              "pattern": "^[A-Za-z]:"
+            }
+          ]
+        },
+        "description": "relative path inside the module folder: no '..', no absolute paths, no backslashes"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "maxLength": 51200
+      }
+    }
+  },
+  "required": [
+    "schema",
+    "subject",
+    "module",
+    "level",
+    "explain_language",
+    "lesson",
+    "files"
+  ],
+  "$defs": {
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "learn",
+            "choice",
+            "fill",
+            "order",
+            "practice",
+            "explain"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "body": {
+          "type": "string",
+          "maxLength": 5000
+        },
+        "code": {
+          "type": "string",
+          "maxLength": 5000
+        },
+        "question": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "maxItems": 10
+        },
+        "answer": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9
+        },
+        "explain": {
+          "type": "string",
+          "maxLength": 3000
+        },
+        "prompt": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "answers": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "maxItems": 20
+          },
+          "maxItems": 20
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "maxItems": 15
+        },
+        "file": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "command": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "solution": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "rubric": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "maxItems": 10
+        }
+      },
+      "required": [
+        "type"
+      ]
+    },
+    "lesson": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/slug"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "subject": {
+          "$ref": "#/$defs/slug"
+        },
+        "level": {
+          "enum": [
+            "primary",
+            "middle",
+            "secondary",
+            "college",
+            "postgraduate",
+            "professional",
+            "self-learner"
+          ]
+        },
+        "explain_language": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$",
+          "maxLength": 35
+        },
+        "status": {
+          "const": "unreviewed"
+        },
+        "syllabus": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "intro": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "planned_batches": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "maxItems": 10
+        },
+        "batches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "title": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "steps": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/step"
+                },
+                "maxItems": 8
+              },
+              "notes": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "points": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 500
+                    },
+                    "maxItems": 10
+                  },
+                  "code": {
+                    "type": "string",
+                    "maxLength": 3000
+                  },
+                  "remember": {
+                    "type": "string",
+                    "maxLength": 300
+                  }
+                },
+                "required": [
+                  "points",
+                  "remember"
+                ]
+              }
+            },
+            "required": [
+              "title",
+              "steps",
+              "notes"
+            ]
+          },
+          "maxItems": 10
+        },
+        "interview": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "q": {
+                "type": "string",
+                "maxLength": 500
+              },
+              "a": {
+                "type": "string",
+                "maxLength": 2000
+              }
+            },
+            "required": [
+              "q",
+              "a"
+            ]
+          },
+          "maxItems": 20
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "subject",
+        "level",
+        "explain_language",
+        "status",
+        "intro",
+        "batches"
+      ]
+    }
+  }
+}

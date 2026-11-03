@@ -1,0 +1,8 @@
+{"t": "2026-11-03T16:05Z", "event": "start", "session_id": "3f1c2a9e-8b7d-4c1e-9a2b-5d6e7f8a9b0c", "subject": "python", "agent": "claude-code", "module": "functions"}
+{"t": "2026-11-03T16:07Z", "event": "step", "module": "functions", "step_ref": "b1-s1", "type": "learn", "outcome": "viewed", "attempts": 1, "hints": 0, "time_band": "30s-2m"}
+{"t": "2026-11-03T16:09Z", "event": "step", "module": "functions", "step_ref": "b1-s2", "type": "choice", "outcome": "incorrect", "attempts": 2, "hints": 1, "time_band": "30s-2m"}
+{"t": "2026-11-03T16:12Z", "event": "step", "module": "functions", "step_ref": "b1-s4", "type": "explain", "outcome": "correct", "attempts": 1, "hints": 0, "time_band": "2-5m", "answer_text": "A function returns a value so other code can use the result."}
+{"t": "2026-11-03T16:12Z", "event": "move", "topic": "return-values", "move": "analogy", "style": "examples", "worked": "true", "note": "Compared a function to a vending machine: input in, item out."}
+{"t": "2026-11-03T16:13Z", "event": "signal", "kind": "confused", "topic": "return-values"}
+{"t": "2026-11-03T16:30Z", "event": "feedback", "rating": 4, "comment": "The vending machine example helped."}
+{"t": "2026-11-03T16:31Z", "event": "end", "duration_min": 26}

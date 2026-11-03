@@ -4,16 +4,24 @@ Run this when `learner/profile.json` does not exist, before teaching anything. A
 rounds of 2-4 questions, not all at once. Use your question/choice UI if you have one,
 otherwise a numbered list in chat. Keep it friendly and quick (about 3 minutes).
 
-## Round 1: what and why
+## Round 1: age, then what and why
+
+Ask the age band **first** (TECH_SPEC §9): it decides the learner's mode.
 
 | Ask | Store as | Values |
 | --- | --- | --- |
+| How old are you? | `age_band` | `under-13`, `13-17`, `18-24`, `25-34`, `35-44`, `45-54`, `55+` |
 | What would you like to learn? | the subject (see "Pick the subject" below) | free text |
 | Why do you want to learn it? What would success look like? | `goals` | 1-3 short goals, ≤200 characters each, no personal details |
-| How old are you? | `age_band` | `under-13`, `13-17`, `18-24`, `25-34`, `35-44`, `45-54`, `55+` |
 | Which language should I explain in? | `explain_language` | BCP-47 tag: `en`, `hi`, `ta`, `es`, `fr-CA` ... |
 
-Ask age as a band only. Never ask for a birth date.
+Ask age as a band only. Never ask for a birth date. Under 18 = **student mode**, 18+ =
+**adult mode**. Teaching is identical; only what may be shared differs.
+
+Only when data sharing is switched on (`collector.enabled` is `true` in `project.json`), and
+only for 18+, also ask right after the age: "Have you learned with this tutor before, on
+another device? If you have your learner code, paste it." If they paste one, run
+`python tools/learner.py restore <code>` after `onboard`.
 
 ## Round 2: where they are
 
@@ -109,10 +117,40 @@ python tools/learner.py plan class-9-science-exploration --answers '{"goal": "ex
 A learner can study several subjects: run `plan` once per subject. Changing goals later:
 add them in the `model` part of a `record` call and re-run `plan`.
 
-## Data sharing
+## Consent (one question, once)
 
-Not switched on yet (`collector.enabled` is false in `project.json`). Do not ask for consent
-and do not mention sharing; everything stays on the learner's machine.
+**Only when `collector.enabled` is `true`** in `project.json`. While it is `false`, never ask
+and never mention sharing: everything stays on the learner's machine. (If it is switched on
+later, the private context at session start says the question is due; ask it once then.)
+
+Ask it right after the age band (TECH_SPEC §9), at most once ever:
+
+1. Get the example record for their mode: `python tools/learner.py consent-sample`. It is
+   built from an invented sample session, never from their data.
+2. Ask: "May I share anonymous learning data like this to improve the course? Your name and
+   personal details are never shared." Show the example (adults: the shape of what is shared
+   about how they learn; students: a record with no id, no time and no free text, that can't
+   be linked to them or to any other session). Yes or No; they can change it any time.
+3. **If they say yes**, check what sharing needs on this computer:
+   `python tools/learner.py sharing-check`. If it lists packages (pynacl, jsonschema), ask in
+   the same moment: "To share, I need to install two small Python packages, pynacl and
+   jsonschema, in this folder only. Is that OK?"
+   - Yes: `python tools/learner.py install-sharing-packages`. If that reports an error, say "I
+     couldn't set that up on this computer, so nothing will be shared." and record
+     `"sharing": false`.
+   - No: nothing is shared. Record `"sharing": false`.
+4. Record the answer in the next `record` call: `"sharing": true` (only once the packages are
+   there) or `"sharing": false`.
+5. **Adults who said yes:** show their learner code once, with its warning:
+   `python tools/learner.py code`, then record `"code_shown": true`. "Keep this private, like a
+   password. It lets you continue on another device and delete your data."
+6. Later, "stop sharing" or "share again" → `"sharing": false` / `true` in a `record` call.
+   "Delete my data" (adults) → `"delete_request": true`. Students' data can't be deleted
+   because nothing links it to them; say so if asked.
+
+If sharing needs GitHub and `gh` isn't signed in, the private context will say so once; then
+say, at the end of a batch: "To share your sessions, run `gh auth login` when convenient."
+Record `"gh_login_asked": true`. Never ask again; teaching never waits for it.
 
 Never mention files, saving, or tools during onboarding. To the learner it is just a
 conversation with their tutor.

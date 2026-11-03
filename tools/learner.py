@@ -201,8 +201,20 @@ def onboard(answers, root=None):
     if old_model:  # re-onboarding keeps what was learned about the learner
         for key in ("strengths", "weak_areas", "what_works"):
             model[key] = old_model.get(key, [])
+    for key in ("sharing", "sharing_asked", "sharing_changed", "code_shown", "gh_login_asked"):
+        if key in existing:
+            profile[key] = existing[key]
+    if profile["mode"] == "student":
+        # a student has no identity: remove one left from an earlier (adult) answer
+        if identity_path(root).exists():
+            identity_path(root).unlink()
     write_json(learner_dir(root) / "profile.json", profile)
     write_json(learner_dir(root) / "model.json", model)
+    if profile["mode"] == "adult":
+        try:
+            init_identity(root)
+        except ImportError as exc:  # pynacl missing: teaching goes on, retried at session start
+            tutorlog.log(root or ROOT, "learner", f"identity not created yet: {exc}")
     if name:  # the full name and each part of it, since people often use one part alone
         for term in [name] + [p for p in name.split() if len(p) >= 2]:
             add_private_term(term, root)
@@ -254,6 +266,169 @@ def add_private_term(term, root=None):
         data["terms"].append(term)
         write_json(path, data)
     return data["terms"]
+
+
+# ---------- identity, learner code, sharing (TECH_SPEC §4, §9) ----------
+
+ID_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"
+LEARNER_ID = re.compile(r"^lrn-[a-hjkmnp-z2-9]{8}$")
+CODE_WARNING = ("Keep this private, like a password. It lets you continue on another device "
+                "and delete your data.")
+
+
+def tutor_dir(root=None):
+    return Path(root or ROOT) / ".tutor"
+
+
+def identity_path(root=None):
+    return tutor_dir(root) / "identity.json"
+
+
+def write_private_json(path, data):
+    """Write a file only the owner can read (mode 0600)."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(json.dumps(data, indent=2) + "\n")
+    os.chmod(tmp, 0o600)
+    os.replace(tmp, path)
+
+
+def init_identity(root=None):
+    """Create the adult learner's id and signing key once. Students never get one."""
+    profile = read_json(learner_dir(root) / "profile.json")
+    if profile is None:
+        raise TutorError("no learner/profile.json yet; run onboard first")
+    if profile.get("mode") != "adult":
+        raise TutorError("student mode has no identity")
+    existing = read_json(identity_path(root))
+    if existing:
+        return existing
+    import secrets
+    from nacl.signing import SigningKey
+    import base64
+    identity = {
+        "learner_id": "lrn-" + "".join(secrets.choice(ID_ALPHABET) for _ in range(8)),
+        "signing_seed_b64": base64.b64encode(bytes(SigningKey.generate())).decode(),
+        "created": today(),
+    }
+    write_private_json(identity_path(root), identity)
+    return identity
+
+
+def learner_code(root=None):
+    import base64
+    identity = read_json(identity_path(root))
+    if not identity:
+        raise TutorError("no identity (adults only, created at onboarding)")
+    seed = base64.b64decode(identity["signing_seed_b64"])
+    return f"{identity['learner_id']}.{base64.b32encode(seed).decode().rstrip('=')}"
+
+
+def restore_identity(code, root=None):
+    """Recreate .tutor/identity.json from a learner code typed on another device."""
+    import base64
+    code = "".join(str(code).split())
+    learner_id, _, secret = code.partition(".")
+    if not LEARNER_ID.match(learner_id) or not secret:
+        raise TutorError("that doesn't look like a learner code")
+    try:
+        seed = base64.b32decode(secret.upper() + "=" * (-len(secret) % 8))
+    except (ValueError, base64.binascii.Error):
+        raise TutorError("that doesn't look like a learner code")
+    if len(seed) != 32:
+        raise TutorError("that doesn't look like a learner code")
+    identity = {"learner_id": learner_id, "signing_seed_b64": base64.b64encode(seed).decode(), "created": today()}
+    write_private_json(identity_path(root), identity)
+    profile = read_json(learner_dir(root) / "profile.json")
+    if profile is not None:
+        profile["code_shown"] = True  # they already have it
+        write_json(learner_dir(root) / "profile.json", profile)
+    return identity
+
+
+def set_profile_flag(key, value, root=None):
+    path = learner_dir(root) / "profile.json"
+    profile = read_json(path)
+    if profile is None:
+        raise TutorError("no learner/profile.json yet; run onboard first")
+    profile[key] = value
+    write_json(path, profile)
+    return profile
+
+
+SHARING_PACKAGES = {"nacl": "pynacl", "jsonschema": "jsonschema"}  # import name -> package
+
+
+def missing_packages():
+    """Packages sharing needs that aren't importable yet."""
+    import importlib.util
+    importlib.invalidate_caches()
+    return [pkg for mod, pkg in SHARING_PACKAGES.items() if importlib.util.find_spec(mod) is None]
+
+
+# Exact versions with hashes only: no dependency resolution, nothing unpinned or unhashed.
+STRICT_INSTALL_FLAGS = ["--require-hashes", "--no-deps"]
+
+
+def installer_commands(target, requirements):
+    """The commands to try, in order. Every one checks hashes and installs no extra deps."""
+    import importlib.util
+    import shutil
+    args = [*STRICT_INSTALL_FLAGS, "--target", str(target), "-r", str(requirements)]
+    if os.environ.get("TUTOR_PIP_COMMAND"):  # tests only: a stand-in installer
+        return [json.loads(os.environ["TUTOR_PIP_COMMAND"]) + args]
+    runners = []
+    if importlib.util.find_spec("pip"):
+        runners.append([sys.executable, "-m", "pip", "install", "--quiet", "--disable-pip-version-check",
+                        "--no-input", *args])
+    if shutil.which("uv"):
+        runners.append(["uv", "pip", "install", "--quiet", "--python", sys.executable, *args])
+    return runners
+
+
+def install_packages(root=None):
+    """Install requirements-tutor.txt into .tutor/pylib. Only after the learner said yes to
+    installing them (TECH_SPEC §1 exception, owner decision 2026-11-03). Never touches the
+    system Python. Raises TutorError if no installer works."""
+    import subprocess
+    root = Path(root or ROOT)
+    target = tutor_dir(root) / "pylib"
+    target.mkdir(parents=True, exist_ok=True)
+    runners = installer_commands(target, root / "requirements-tutor.txt")
+    errors = []
+    for command in runners:
+        try:
+            done = subprocess.run(command, capture_output=True, text=True, timeout=600)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            errors.append(str(exc))
+            continue
+        if done.returncode == 0:
+            if str(target) not in sys.path:
+                sys.path.insert(1, str(target))
+            if not missing_packages():
+                return target
+            errors.append("installed, but the packages still can't be imported")
+        else:
+            errors.append((done.stderr or done.stdout).strip()[-300:])
+    raise TutorError("could not install the sharing packages ("
+                     + ("; ".join(errors) if errors else "no pip or uv on this computer") + ")")
+
+
+def set_sharing(on, root=None):
+    """The learner's answer to the consent question (changeable any time). Sharing can't be
+    turned on until the packages it needs are installed."""
+    if on and missing_packages():
+        raise TutorError(f"sharing needs {', '.join(missing_packages())}: ask the learner, in the same "
+                         "consent moment, whether you may install them (python tools/learner.py "
+                         "install-sharing-packages); if they say no, sharing stays off")
+    profile = set_profile_flag("sharing", bool(on), root)
+    profile["sharing_asked"] = True
+    profile["sharing_changed"] = today()
+    write_json(learner_dir(root) / "profile.json", profile)
+    return profile
 
 
 # ---------- subjects and plans ----------
@@ -701,6 +876,16 @@ def main(argv=None):
     p.add_argument("--extra")
     p = sub.add_parser("add-term", help="remember a personal term so it never leaves this machine")
     p.add_argument("term")
+    sub.add_parser("init", help="create the adult learner id and signing key (done by onboard)")
+    sub.add_parser("code", help="print the learner code, to show the learner once")
+    p = sub.add_parser("restore", help="recreate the identity from a learner code")
+    p.add_argument("learner_code")
+    p = sub.add_parser("sharing", help="the learner's answer to the consent question")
+    p.add_argument("state", choices=["on", "off"])
+    sub.add_parser("mode", help="print adult or student")
+    sub.add_parser("consent-sample", help="print the example record to show with the consent question")
+    sub.add_parser("sharing-check", help="print the packages sharing still needs (nothing if ready)")
+    sub.add_parser("install-sharing-packages", help="install them into .tutor/pylib (after the learner agrees)")
     sub.add_parser("show", help="summary for the start of a session")
     args = parser.parse_args(argv)
 
@@ -722,9 +907,31 @@ def main(argv=None):
             add_private_term(args.term)
         elif args.cmd == "show":
             print(summary())
+        elif args.cmd == "init":
+            init_identity()
+        elif args.cmd == "code":
+            code = learner_code()
+            set_profile_flag("code_shown", True)
+            print(f"{code}\n{CODE_WARNING}")
+        elif args.cmd == "restore":
+            restore_identity(args.learner_code)
+        elif args.cmd == "sharing":
+            set_sharing(args.state == "on")
+        elif args.cmd == "mode":
+            print((read_json(learner_dir() / "profile.json") or {}).get("mode", "none"))
+        elif args.cmd == "sharing-check":
+            missing = missing_packages()
+            if missing:
+                print(" ".join(missing))
+        elif args.cmd == "install-sharing-packages":
+            install_packages()
+        elif args.cmd == "consent-sample":
+            import collect
+            print(collect.consent_sample(read_json(learner_dir() / "profile.json", {}).get("mode", "adult")))
     except Exception as exc:
         tutorlog.log(ROOT, "learner", f"{args.cmd} failed: {exc}")
-        if args.cmd in ("onboard", "plan"):
+        if args.cmd in ("onboard", "plan", "restore", "code", "consent-sample", "install-sharing-packages",
+                        "sharing"):
             print(f"error: {exc}", file=sys.stderr)
             return 2
         if not isinstance(exc, TutorError):
