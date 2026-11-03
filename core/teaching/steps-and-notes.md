@@ -7,7 +7,7 @@ Teach from the module's `lesson.json`, **one step per message**:
 1. Present the step (adapted to the learner's language, level and styles, see `adaptation.md`).
 2. Wait for their answer. Never answer for them, never show the next step in the same message.
 3. Give short feedback using the step's `explain`: say what was right, then why.
-4. Log it silently and move on.
+4. Move on. No tool calls between steps (see "Bookkeeping" below).
 
 | Step type | How to run it |
 | --- | --- |
@@ -15,7 +15,7 @@ Teach from the module's `lesson.json`, **one step per message**:
 | `choice` | Show the question and numbered options. Don't reveal the answer until they reply. |
 | `fill` | Show the `code` or `text` with blanks. Accept any spelling listed in `answers`; accept close equivalents and say what the usual form is. |
 | `order` | Show the items **shuffled**. Correct order is the order in the file. |
-| `explain` | Ask the `prompt`. Compare their answer with each `rubric` point: say what they covered, what is missing, and one thing to add. Mark `correct` if they covered most points. |
+| `explain` | Ask the `prompt`. Compare their answer with each `rubric` point: say what they covered, what is missing, and one thing to add. Count it `correct` if they covered most points. |
 | `practice` | Programming: they copy `file` into `my-work/<module-id>/`, write the code, and you run `command`. Other subjects: they do the task and show you; give feedback. |
 
 Rules:
@@ -28,46 +28,66 @@ Rules:
 - Programming: learners write code only in `my-work/<module-id>/`, never in `core/`. Run their
   tests yourself, read the failures, review the code.
 
-## Logging (silent)
-
-At the start of a session, and after every step:
-
-```bash
-python tools/log_session.py start --subject <id> --module <id> --agent <claude-code|codex|cursor|other>
-python tools/log_session.py step --module <id> --step-ref b1-s3 --type choice \
-    --outcome correct --attempts 1 --hints 0 --seconds 40
-```
-
-`step-ref` is `b<batch>-s<step>`. When you used a teaching move (an analogy, a worked example,
-a re-explanation) log it and whether it worked:
-
-```bash
-python tools/log_session.py move --topic <slug> --move analogy --style analogies --worked true
-python tools/log_session.py signal --kind confused --topic <slug>
-```
-
-`--answer-text` and `--note` are optional; never put personal details in them. At the end:
-`python tools/log_session.py end`. Never show the log to the learner unless they ask.
-
 ## After every batch: revision notes
 
 When the last step of a batch is done:
 
 1. Give the batch's `notes` as a short revision summary in the learner's language: the
    points, the snippet/formula, and the one-line takeaway. Add one personal line if useful
-   ("You found X tricky; remember Y").
-2. Save them: `python tools/learner.py notes <subject> <module> <batch number> --extra "<that personal line>"`
-3. Log it: `python tools/log_session.py batch --module <id> --batch <n>`
-4. Ask: continue, take a break, or stop here.
+   ("You found X tricky; remember Y"). This is teaching, so it is part of the conversation.
+2. Make the batch's one quiet `record` call (below). Say nothing about it.
+3. Ask: continue, take a break, or stop here.
 
-When a module's last batch is done: `python tools/learner.py progress <subject> <module> done`,
-update the learner model, and offer the module's `interview` questions if their goal is a job.
+When a module's last batch is done, offer the module's `interview` questions if their goal
+is a job.
+
+## Bookkeeping: one quiet call per batch
+
+The learner must only ever experience a tutor (`AGENTS.md` section 0). Remember each step's
+outcome while teaching; at the end of the batch save everything in **one** call:
+
+```bash
+python tools/tutor.py record --json '{"subject": "class-9-science", "module": "matter",
+  "agent": "claude-code",
+  "steps": [
+    {"step_ref": "b1-s1", "type": "learn", "outcome": "viewed"},
+    {"step_ref": "b1-s2", "type": "choice", "outcome": "incorrect", "attempts": 2, "hints": 1, "seconds": 70},
+    {"step_ref": "b1-s5", "type": "explain", "outcome": "correct", "answer_text": "Hot particles move faster"}],
+  "moves": [{"topic": "diffusion", "move": "analogy", "style": "analogies", "worked": true}],
+  "signals": [{"kind": "confused", "topic": "latent-heat"}],
+  "private_terms": ["<any personal term they mentioned>"],
+  "batch_done": 1, "notes_extra": "Air is matter too: it has mass.",
+  "model": {"add": {"weak_areas": ["particles"], "what_works": ["everyday examples before the rule"]}}}'
+```
+
+| Key | What |
+| --- | --- |
+| `subject`, `module` | where you are (needed in every call) |
+| `agent` | `claude-code`, `codex`, `cursor` or `other` |
+| `steps[]` | `step_ref` (`b<batch>-s<step>`), `type` (a step type, or `quiz`, `free`), `outcome` (`correct`, `incorrect`, `skipped`, `viewed`), `attempts`, `hints`, `seconds` (rough) or `time_band`, optional `answer_text` (≤500 characters, no personal details) |
+| `moves[]` | a teaching move you made: `topic`, `move` (`explanation`, `analogy`, `example`, `worked-example`, `visual`, `re-explain`, `question`), `style`, `worked` (`true`, `false`, `unknown`), optional `note` |
+| `signals[]` | `kind` (`confused`, `confident`, `bored`, `frustrated`, `asked-slower`, `asked-faster`, `took-break`), `topic` |
+| `exercises[]` | `ref`, `passed`, optional `code_file` |
+| `private_terms[]` | personal terms mentioned in this batch |
+| `batch_done`, `notes_extra` | saves the batch's revision notes for later (plus your personal line) |
+| `module_done` | `true` when the module's last batch is done |
+| `model` | `set` / `add` / `remove` on the learner model (`learner-model.md`) |
+| `progress_entry` | at the end of a session: a short markdown entry for their progress history |
+| `feedback` | `{"rating": 1-5, "comment": "..."}` if they gave any |
+| `end` | `true` in the last call of the session (agents without hooks; harmless with hooks) |
+
+The call prints nothing and always succeeds from your point of view: anything it can't save
+is logged to `learner/tutor.log` and retried next session. Inside the JSON, write an
+apostrophe as `'` so the shell quoting stays intact.
+
+If the learner stops in the middle of a batch, make the `record` call when they leave, with
+the steps done so far, a `progress_entry`, and `"end": true`.
 
 ## Revision
 
-Every 3rd session, start with a 5-question quiz mixing earlier modules and `weak_areas`
-(log each as `--type quiz`). Learners can ask to see their notes any time:
-`learner/subjects/<id>/notes.md`.
+Every 3rd session (the private context says so), start with a 5-question quiz mixing earlier
+modules and `weak_areas`; record it as steps with `type` `quiz`. Learners can ask to see their
+notes any time; show them in the conversation (they live in `learner/subjects/<id>/notes.md`).
 
 ## Time
 

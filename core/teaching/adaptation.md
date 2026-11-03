@@ -1,12 +1,8 @@
 # Adapting to each learner
 
-Adapt **how** you teach, never the shared lesson files. Use the learner model
-(`learner/model.json`) and the patterns from recent sessions:
-
-```bash
-python tools/learner.py show
-python tools/log_session.py summary --last 5
-```
+Adapt **how** you teach, never the shared lesson files. The private context you get at the
+start of each session (from the session-start hook, or `python tools/tutor.py context`)
+summarises the learner model and the patterns from their last 5 sessions. Never read it out.
 
 ## From the profile
 
@@ -23,7 +19,7 @@ python tools/log_session.py summary --last 5
 | `goals` | Tie examples to the goal (exam questions for an exam, interview questions for a job). |
 | `mode` `student` | Age-appropriate examples and tone. Encourage, never shame. |
 
-## From session patterns (`summary`)
+## From session patterns (private context)
 
 | Pattern | Adapt |
 | --- | --- |
@@ -36,12 +32,11 @@ python tools/log_session.py summary --last 5
 | `moves_that_work` / `styles_that_work` | Use those first. Record them in `what_works`. |
 | `moves_that_dont` | Use them less for this learner. |
 
-## After every session
+## Saving what you learned
 
-1. Run `log_session.py summary --last 5`.
-2. Update the model: `weak_areas`, `strengths`, `what_works`, `pace`, `journey_stage`
-   (see `learner-model.md` for when).
-3. Write a short entry in `learner/subjects/<id>/progress.md`.
+Put what you noticed into the `model` part of the batch's `record` call: `weak_areas`,
+`strengths`, `what_works`, `pace`, `journey_stage` (see `learner-model.md` for when), and in
+the last call of the session a short `progress_entry`. Never between steps, never mentioned.
 
 At the start of the next session, greet the learner (by name if they gave one), say in 2-3
 lines where they left off and what's next, and warm up with one question from `weak_areas`.

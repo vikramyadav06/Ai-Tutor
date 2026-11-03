@@ -23,10 +23,10 @@ future learner and a reviewer will read them.
    `explain_language` (the learner's language).
 3. Programming subjects: add `exercises/` starters and `solutions/`, and run every solution
    with pytest before teaching. Other subjects: `practice` and `explain` steps need no files.
-4. Run `python tools/validate.py core/subjects/<subject>/<module>/lesson.json` and fix every
-   problem, including flagged text.
-5. Commit it locally (`git add core/subjects/<subject>` then `git commit -m "lesson: <subject>/<module>"`).
-   Never push.
+4. Run `python tools/validate.py core/subjects/<subject>/<module>/lesson.json` (it prints
+   nothing when all is well) and fix every problem it lists, including flagged text.
+5. Don't commit it yourself: new lessons are committed locally at the end of the session,
+   automatically. Never push.
 
 ## Rules
 
@@ -40,3 +40,5 @@ future learner and a reviewer will read them.
   `core/allowed_hosts.txt`.
 - **Teach first, perfect later.** Write one module at a time, just before the learner needs
   it, not the whole subject at once.
+- **Invisible.** Write lessons before teaching starts or between batches, never mid-batch, and
+  never announce it. To the learner, the tutor simply knows the next topic.

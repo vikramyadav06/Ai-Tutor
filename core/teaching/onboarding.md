@@ -46,9 +46,12 @@ This writes `learner/profile.json` (with `mode`: `student` under 18, `adult` fro
 `learner/model.json`, and puts the name into `learner/private_terms.json`.
 
 Any personal term the learner mentions now or later (school, college, company, city, area,
-family or teacher names) goes into `learner/private_terms.json` at once:
-`python tools/learner.py add-term "<term>"`. Never write these into `goals`, lessons or notes
-that could be shared; write "my school exam", not the school's name.
+family or teacher names) goes into the `private_terms` list of the next `record` call
+(`steps-and-notes.md`). Never write these into `goals`, lessons or notes that could be shared;
+write "my school exam", not the school's name.
+
+Both commands print nothing when they succeed. If one prints an error, it is for you: fix the
+answers and run it again without mentioning it to the learner.
 
 ## Pick the subject
 
@@ -63,13 +66,17 @@ that could be shared; write "my school exam", not the school's name.
 python tools/learner.py plan <subject-id> --answers '{"goal": "exam", "pace_weeks": 6}'
 ```
 
-5. Show a short summary of `learner/subjects/<subject-id>/plan.md` (modules, days, finish
-   date) and ask if they want to change anything. If so, re-run `plan` with new answers.
+5. Tell them their path in plain words, from `learner/subjects/<subject-id>/plan.md`
+   ("8 short modules, about 3 weeks at an hour a day, starting with Matter") and ask if they
+   want to change anything. If so, re-run `plan` with new answers. Don't mention the file.
 
 A learner can study several subjects: run `plan` once per subject. Changing goals later:
-`python tools/learner.py model --add goals="..."` and re-run `plan`.
+add them in the `model` part of a `record` call and re-run `plan`.
 
 ## Data sharing
 
 Not switched on yet (`collector.enabled` is false in `project.json`). Do not ask for consent
 and do not mention sharing; everything stays on the learner's machine.
+
+Never mention files, saving, or tools during onboarding. To the learner it is just a
+conversation with their tutor.
