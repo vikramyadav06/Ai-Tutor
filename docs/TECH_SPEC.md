@@ -6,7 +6,7 @@ Anything not covered here: pick the simplest safe option and record it in
 `docs/DECISIONS.md` (date, decision, reason).
 
 Names used below: **Repo A** = this repository (public). **Repo B** = the private platform
-repository. `OWNER/ai-tutor` and `OWNER/ai-tutor-platform` are placeholders for their real names.
+repository: `vikramwebgarh/Ai-Tutor` (Repo A) and `vikramwebgarh/Ai-Tutor-Platform` (Repo B).
 
 ---
 
@@ -68,7 +68,7 @@ the learner's own code), but the tutor never pushes `main` without the learner a
 ```json
 {
   "schema_version": 1,
-  "upstream_repo": "OWNER/ai-tutor",
+  "upstream_repo": "vikramwebgarh/Ai-Tutor",
   "collector": {
     "enabled": false,
     "keys": [
@@ -238,7 +238,7 @@ anywhere except `.tutor/identity.json`.
 Workflow `.github/workflows/ingest.yml`, `schedule: cron "17 * * * *"` plus `workflow_dispatch`,
 `concurrency: ingest`, top-level `permissions: contents: write` (Repo B only).
 
-1. **Discover:** `GET /repos/OWNER/ai-tutor/forks?per_page=100` (paginate) with the default
+1. **Discover:** `GET /repos/vikramwebgarh/Ai-Tutor/forks?per_page=100` (paginate) with the default
    `GITHUB_TOKEN`. For each fork: `git ls-remote https://github.com/<fork>.git refs/heads/tutor-data`.
 2. **Skip unchanged:** compare with `ingest/state.json` (`fork_id → last ingested commit`).
    `state.json` stores numeric fork ids and commits only, never usernames, and never which record

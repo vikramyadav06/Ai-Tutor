@@ -10,14 +10,14 @@ Run this yourself in a terminal (not through an AI agent):
 It prints the PUBLIC key (safe to share; goes into project.json) and writes the PRIVATE key to
 collector_private_<key_id>.txt next to where you run it, readable only by you. Then:
 
-    gh secret set COLLECTOR_PRIVATE_KEY_K1 --repo OWNER/ai-tutor-platform < collector_private_k1.txt
+    gh secret set COLLECTOR_PRIVATE_KEY_K1 --repo vikramwebgarh/Ai-Tutor-Platform < collector_private_k1.txt
     # then delete the file securely:
     #   macOS/Linux: rm -P collector_private_k1.txt   (or shred -u)
     #   Windows:     del collector_private_k1.txt
 
 It also creates ACCOUNT_HASH_KEY the first time (k1 only) in account_hash_key.txt:
 
-    gh secret set ACCOUNT_HASH_KEY --repo OWNER/ai-tutor-platform < account_hash_key.txt
+    gh secret set ACCOUNT_HASH_KEY --repo vikramwebgarh/Ai-Tutor-Platform < account_hash_key.txt
 
 Never commit these files, paste them into a chat, or share them with an AI agent.
 """
@@ -67,9 +67,9 @@ def main() -> None:
     print(f'  {{"key_id": "{key_id}", "public_key_b64": "{public_b64}", "status": "active"}}')
     print()
     print(f"Private key written to {priv_path} (only you can read it). Next:")
-    print(f"  gh secret set COLLECTOR_PRIVATE_KEY_{key_id.upper()} --repo OWNER/ai-tutor-platform < {priv_path}")
+    print(f"  gh secret set COLLECTOR_PRIVATE_KEY_{key_id.upper()} --repo vikramwebgarh/Ai-Tutor-Platform < {priv_path}")
     if created_hash_key:
-        print(f"  gh secret set ACCOUNT_HASH_KEY --repo OWNER/ai-tutor-platform < {hash_path}")
+        print(f"  gh secret set ACCOUNT_HASH_KEY --repo vikramwebgarh/Ai-Tutor-Platform < {hash_path}")
     print("Then delete those files. Never commit them or share them with anyone, including AI agents.")
 
 
