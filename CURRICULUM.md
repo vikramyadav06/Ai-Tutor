@@ -1,38 +1,22 @@
-# Playwright with Python – 2-Week Fast-Track Plan
+# Playwright with Python – Full Curriculum
 
-_Checkboxes are ticked automatically by Claude as you complete each day._
+This is the full course outline. You don't need all of it: run `python start.py` and you get a personal plan (`learner/my-plan.md`) with only the modules that fit your role, goal and time. Module ids match `course/catalog.json`.
 
-## Overview
+## Setup (~1 hour)
 
-In 14 days (3+ hours a day) you go from Playwright beginner to a portfolio-ready Python framework that runs on Chromium, Firefox and WebKit, on Windows, macOS and Linux, and on emulated mobile devices, all through GitHub Actions.
-
-| Item | Choice |
-| --- | --- |
-| Language & runner | Python 3.11+, pytest + pytest-playwright |
-| Design pattern | Page Object Model (POM) |
-| Extras | API testing, auth & sessions, visual and accessibility testing |
-| Reporting | Allure + Playwright Trace Viewer |
-| Cross-browser / device | Playwright engines + device emulation, run as a GitHub Actions matrix |
-| Goal | Job switch: interview prep + public GitHub portfolio |
-
-**How to use this plan:** each day = ~1 hour learning + ~2 hours hands-on. Claude teaches, reviews your code, keeps LEARNING_LOG.md and ticks the boxes here. You just learn.
-
-**Your head start:** you already know Selenium + pytest, so fixtures, markers, conftest and POM transfer directly. Focus on what is new: auto-waiting, locators, `expect` assertions, browser contexts and tracing.
-
-## Setup (Day 0, ~1 hour)
-
-- [ ] Install Python 3.11+, VS Code (Python + Playwright extensions), Git
-- [ ] Create a virtual env: `python -m venv venv` and activate it
-- [ ] `pip install pytest-playwright pytest-xdist pytest-rerunfailures allure-pytest axe-playwright-python python-dotenv`
-- [ ] `playwright install --with-deps` (downloads Chromium, Firefox, WebKit)
-- [ ] Create a public GitHub repo, e.g. `playwright-python-framework`
-- [ ] Practice apps: saucedemo.com (UI), restful-booker (API), the-internet.herokuapp.com (edge cases)
+- Install Python 3.11+, VS Code (Python + Playwright extensions), Git
+- Create a virtual env: `python -m venv venv` and activate it
+- `pip install pytest-playwright pytest-xdist pytest-rerunfailures allure-pytest axe-playwright-python python-dotenv`
+- `playwright install --with-deps` (downloads Chromium, Firefox, WebKit)
+- Practice apps: saucedemo.com (UI), restful-booker (API), the-internet.herokuapp.com (edge cases)
 
 **Target project structure:**
 
 ```
-playwright-python-framework/
-├── pages/            # Page Objects (login_page.py, cart_page.py)
+<repo>/
+├── course/           # shareable lessons, exercises, solutions, quizzes (one folder per module)
+├── my-work/          # your exercise code, one folder per module
+├── pages/            # Page Objects (login_page.py, cart_page.py) – from the POM module
 ├── tests/
 │   ├── ui/           # UI tests
 │   ├── api/          # API tests
@@ -46,31 +30,22 @@ playwright-python-framework/
 └── .github/workflows/playwright.yml
 ```
 
-## Week 1 – Core Playwright + framework
+## Part 1 – Core Playwright + framework
 
-| Day | Topic | Learn | Build (done when green) |
+| # | Topic | Learn | Build (done when green) |
 | --- | --- | --- | --- |
 | 1 | Basics & architecture | Browser → Context → Page model; sync vs async API; `playwright codegen <url>`; headed vs headless; `--headed`, `--slowmo` | First test with the `page` fixture: open saucedemo, log in, assert page title |
 | 2 | Locators | `get_by_role`, `get_by_label`, `get_by_text`, `get_by_placeholder`, `get_by_test_id`; CSS/XPath as fallback; `.filter(has_text=)`, `.nth()`, chaining; strict mode | Locate every element on login + inventory pages using role-based locators only |
 | 3 | Actions & tricky UI | `click`, `fill`, `press`, `check`, `select_option`, `hover`, `drag_to`; uploads (`set_input_files`), downloads (`expect_download`); iframes (`frame_locator`); new tabs (`context.expect_page`); alerts (`page.on("dialog")`) | the-internet.herokuapp.com: iframe, JS alerts, file upload/download, multiple windows |
-| 4 | Assertions & waiting | Auto-waiting; `expect(...).to_be_visible / to_have_text / to_have_count / to_have_url`; timeouts; `wait_for_response`, `wait_for_load_state`; why no `time.sleep` | Add web-first assertions to Days 1–3 tests; delete every sleep |
+| 4 | Assertions & waiting | Auto-waiting; `expect(...).to_be_visible / to_have_text / to_have_count / to_have_url`; timeouts; `wait_for_response`, `wait_for_load_state`; why no `time.sleep` | Add web-first assertions to your earlier tests; delete every sleep |
 | 5 | pytest-playwright deep dive | Built-in fixtures (`page`, `context`, `browser`, `browser_context_args`); conftest + scopes; markers; `parametrize`; CLI: `--browser`, `--base-url`, `--screenshot`, `--video`, `--tracing`; `pytest.ini` | Data-driven login test from JSON: valid, locked-out, wrong password |
 | 6 | Page Object Model | `BasePage`, one class per page, fixtures that return page objects; config via `.env`; test data files; logging | Refactor all tests to POM; full flow: login → add to cart → checkout → order confirmation |
 | 7 | Auth, sessions & debugging | `context.storage_state(path=)` and reuse; session-scoped login fixture; two users in one test with two contexts; Trace Viewer (`--tracing retain-on-failure`, `playwright show-trace`); `PWDEBUG=1`, `page.pause()` | Log in once per run and reuse state; break a test on purpose and diagnose it from the trace |
 
-**Week 1 progress:**
 
-- [ ] Day 1
-- [ ] Day 2
-- [ ] Day 3
-- [ ] Day 4
-- [ ] Day 5
-- [ ] Day 6
-- [ ] Day 7
+## Part 2 – Advanced testing, cross-browser/device, CI
 
-## Week 2 – Advanced testing, cross-browser/device, CI
-
-| Day | Topic | Learn | Build (done when green) |
+| # | Topic | Learn | Build (done when green) |
 | --- | --- | --- | --- |
 | 8 | API testing | `APIRequestContext` (`playwright.request.new_context`, `page.request`); GET/POST/PUT/DELETE; status, headers and JSON assertions; token auth; API + UI hybrid | CRUD suite on restful-booker + one hybrid test |
 | 9 | Network control | `page.route()` to mock, modify or block requests; `wait_for_response`; HAR record and replay (`route_from_har`) | Mock an empty product list and an API 500 error; block images to speed up a test |
@@ -80,17 +55,6 @@ playwright-python-framework/
 | 13 | Parallel runs & Allure | `pytest-xdist` (`-n auto`) and test isolation; retries with `pytest-rerunfailures`; `--alluredir`; Allure steps, severity, attachments (screenshot + trace on failure via a hook) | Parallel run in under half the serial time; Allure report with failure attachments |
 | 14 | GitHub Actions CI | Workflow YAML; matrix `os × browser` + a device job; pip cache; `playwright install --with-deps`; GitHub Secrets; upload traces as artifacts; publish Allure to GitHub Pages; PR + nightly triggers | Green matrix run, status badge and live Allure report link in README |
 
-**Week 2 progress:**
-
-- [ ] Day 8
-- [ ] Day 9
-- [ ] Day 10
-- [ ] Day 11
-- [ ] Day 12
-- [ ] Day 13
-- [ ] Day 14
-
-After Day 14, spend 1–2 extra days on the portfolio polish and interview prep below.
 
 ## Cross-browser & cross-device cheat sheet
 
@@ -166,16 +130,16 @@ jobs:
 
 **Limit to know:** emulation covers viewport, touch, user agent and device settings, not real phone hardware. Real devices need a cloud grid such as BrowserStack or LambdaTest, which you can add later with no test rewrites.
 
-## Portfolio project & interview prep
+## Portfolio project & interview prep (job-switch and career-start goals)
 
 **README must show:**
 
-- [ ] One-line summary + tech stack badges (Python, Playwright, pytest, Allure, GitHub Actions)
-- [ ] CI status badge + link to the live Allure report on GitHub Pages
-- [ ] Coverage list: UI, API, hybrid, visual, accessibility, auth reuse, cross-browser, mobile emulation
-- [ ] Folder structure + how to run locally (3 commands)
-- [ ] Screenshot of the Allure dashboard and a Trace Viewer failure
-- [ ] Short "Design decisions" section: why POM, why storage_state, why matrix CI
+- One-line summary + tech stack badges (Python, Playwright, pytest, Allure, GitHub Actions)
+- CI status badge + link to the live Allure report on GitHub Pages
+- Coverage list: UI, API, hybrid, visual, accessibility, auth reuse, cross-browser, mobile emulation
+- Folder structure + how to run locally (3 commands)
+- Screenshot of the Allure dashboard and a Trace Viewer failure
+- Short "Design decisions" section: why POM, why storage_state, why matrix CI
 
 **Top interview questions to practise (answer each out loud in 1–2 minutes):**
 

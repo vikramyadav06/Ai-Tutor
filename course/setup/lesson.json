@@ -1,0 +1,108 @@
+{
+  "id": "setup",
+  "title": "Setup",
+  "intro": "Get Python, Playwright and the browsers installed, and run your first check that everything works.",
+  "batches": [
+    {
+      "title": "Get your computer ready",
+      "steps": [
+        {
+          "type": "learn",
+          "title": "What you need",
+          "body": "You need three things on your computer:\n\n- **Python 3.10 or newer** from [python.org](https://www.python.org/downloads/)\n- **Git**, to download this course\n- A code editor. **VS Code** with the Python extension works well.\n\nCheck Python with the command below. On macOS/Linux you may need `python3`.",
+          "code": "python --version"
+        },
+        {
+          "type": "learn",
+          "title": "A virtual environment per project",
+          "body": "A virtual environment (venv) is a private folder of packages for one project, so versions don't clash with other projects.\n\nCreate it once inside the course folder, then **activate** it every time you open a new terminal.",
+          "code": "python -m venv venv\n\n# Windows\nvenv\\Scripts\\activate\n\n# macOS / Linux\nsource venv/bin/activate"
+        },
+        {
+          "type": "choice",
+          "question": "Why use a virtual environment?",
+          "options": [
+            "It makes tests run faster",
+            "It keeps this project's packages separate from other projects",
+            "Playwright refuses to install without one",
+            "It installs the browsers"
+          ],
+          "answer": 1,
+          "explain": "A venv isolates packages per project. Playwright works without one, but a venv avoids version clashes."
+        },
+        {
+          "type": "learn",
+          "title": "Install Playwright and the browsers",
+          "body": "Two commands do it:\n\n- `pip install -r requirements.txt` installs the Python packages, including **pytest-playwright**.\n- `playwright install --with-deps` downloads Playwright's own builds of **Chromium, Firefox and WebKit**. `--with-deps` also installs system libraries the browsers need (mainly on Linux).",
+          "code": "pip install -r requirements.txt\nplaywright install --with-deps"
+        },
+        {
+          "type": "order",
+          "prompt": "Put the setup steps in order.",
+          "items": [
+            "Create the venv: python -m venv venv",
+            "Activate the venv",
+            "pip install -r requirements.txt",
+            "playwright install --with-deps",
+            "Run pytest to check it works"
+          ],
+          "explain": "Packages go into the active venv, so activate it before pip install. Browsers are downloaded by the playwright command that pip installed."
+        },
+        {
+          "type": "practice",
+          "title": "Run a smoke test",
+          "body": "Copy the exercise into `my-work/setup/` and complete it: open https://example.com and check the page title is **Example Domain**. If it passes, your setup works.",
+          "file": "course/setup/exercises/test_ex01_smoke.py",
+          "command": "pytest my-work/setup -v",
+          "solution": "course/setup/solutions/test_ex01_smoke.py"
+        }
+      ],
+      "notes": {
+        "points": [
+          "Python 3.10+, Git and an editor are all you need to start.",
+          "Create a venv once; activate it in every new terminal.",
+          "pip installs the packages; `playwright install --with-deps` downloads Chromium, Firefox and WebKit.",
+          "A one-line smoke test proves the whole setup works."
+        ],
+        "code": "python -m venv venv\nsource venv/bin/activate   # Windows: venv\\Scripts\\activate\npip install -r requirements.txt\nplaywright install --with-deps",
+        "remember": "No activated venv is the most common reason for 'module not found' errors."
+      }
+    },
+    {
+      "title": "How this course works",
+      "steps": [
+        {
+          "type": "learn",
+          "title": "Where your code goes",
+          "body": "Each module has a `lesson.json` (what you're reading now), starter files in `exercises/` and reference answers in `solutions/`.\n\nYou write your own code in `my-work/<module-id>/`, so the course files stay clean."
+        },
+        {
+          "type": "choice",
+          "question": "You start the Locators exercises. Where do you write your code?",
+          "options": [
+            "course/locators/exercises/",
+            "course/locators/solutions/",
+            "my-work/locators/",
+            "Anywhere in the repo"
+          ],
+          "answer": 2,
+          "explain": "Copy the starter from exercises/ into my-work/locators/ and work there."
+        },
+        {
+          "type": "learn",
+          "title": "Small steps, then notes",
+          "body": "Lessons come in short batches. After each batch you get **notes**: the key points and a code snippet. They are saved on the **Notes** page so you can revise any time."
+        }
+      ],
+      "notes": {
+        "points": [
+          "Course files: lesson.json, exercises/, solutions/.",
+          "Your code: my-work/<module-id>/.",
+          "Every batch ends with notes you can revise later."
+        ],
+        "remember": "Try the exercise first, then compare with solutions/."
+      }
+    }
+  ],
+  "interview": []
+}

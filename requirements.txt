@@ -1,0 +1,6 @@
+pytest-playwright
+pytest-xdist
+pytest-rerunfailures
+allure-pytest
+axe-playwright-python
+python-dotenv

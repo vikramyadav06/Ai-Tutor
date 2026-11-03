@@ -1,0 +1,25 @@
+{
+  "id": "module-id",
+  "title": "Module title",
+  "intro": "One or two sentences: what the learner can do after this module.",
+  "batches": [
+    {
+      "title": "Short batch title (4-6 steps, ~15-25 minutes)",
+      "steps": [
+        {"type": "learn", "title": "One idea per step", "body": "Plain words. **Bold** and `code` work.\n\n- Lists work too", "code": "optional_python_snippet()"},
+        {"type": "choice", "question": "One question?", "code": "optional", "options": ["Wrong", "Right", "Wrong"], "answer": 1, "explain": "Why the right answer is right."},
+        {"type": "fill", "prompt": "Complete the code.", "code": "page = context.___()", "answers": [["new_page"]], "explain": "Each ___ is one blank; answers[i] lists accepted spellings."},
+        {"type": "order", "prompt": "Put these in order.", "items": ["First", "Second", "Third"], "explain": "Items are written in the correct order; the app shuffles them."},
+        {"type": "practice", "title": "Hands-on (on your computer)", "body": "What to build.", "file": "course/module-id/exercises/test_ex01_name.py", "command": "pytest my-work/module-id -v", "solution": "course/module-id/solutions/test_ex01_name.py"}
+      ],
+      "notes": {
+        "points": ["Revision point 1", "Revision point 2"],
+        "code": "optional key snippet to remember",
+        "remember": "One-line takeaway."
+      }
+    }
+  ],
+  "interview": [
+    {"q": "An interview question on this module?", "a": "A short model answer."}
+  ]
+}

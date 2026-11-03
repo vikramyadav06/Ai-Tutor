@@ -1,0 +1,200 @@
+{
+  "id": "basics",
+  "title": "Basics & architecture",
+  "intro": "Understand how Playwright controls browsers, the Browser → Context → Page model, and write and run your first test.",
+  "batches": [
+    {
+      "title": "What Playwright is",
+      "steps": [
+        {
+          "type": "learn",
+          "title": "One API, three browser engines",
+          "body": "Playwright is an open-source library from Microsoft for automating browsers. With one API you can drive **Chromium** (Chrome, Edge), **Firefox** and **WebKit** (the engine behind Safari).\n\nIn Python you use the `playwright` package, and for tests the **pytest-playwright** plugin."
+        },
+        {
+          "type": "choice",
+          "question": "Which browser engines does Playwright support?",
+          "options": [
+            "Only Chromium",
+            "Chromium and Firefox",
+            "Chromium, Firefox and WebKit",
+            "Any browser with a WebDriver"
+          ],
+          "answer": 2,
+          "explain": "Playwright ships its own builds of Chromium, Firefox and WebKit and drives all three with the same code."
+        },
+        {
+          "type": "learn",
+          "title": "How it differs from Selenium",
+          "body": "Selenium sends commands through a separate driver per browser (chromedriver, geckodriver) using the WebDriver protocol.\n\nPlaywright talks to its bundled browsers directly over one connection. That makes it fast, and lets it **wait automatically** for elements to be ready before acting, so you rarely need explicit waits or `time.sleep`."
+        },
+        {
+          "type": "choice",
+          "question": "In Selenium you often add explicit waits before clicking. Why do you rarely need them in Playwright?",
+          "options": [
+            "Playwright clicks faster than the page loads",
+            "Playwright auto-waits for the element to be ready before acting",
+            "Playwright disables JavaScript",
+            "Playwright retries the whole test on failure"
+          ],
+          "answer": 1,
+          "explain": "Actions like click() wait until the element is attached, visible, stable and enabled. This removes most flaky waits."
+        }
+      ],
+      "notes": {
+        "points": [
+          "Playwright automates Chromium, Firefox and WebKit with one API.",
+          "Python: `playwright` package; tests: `pytest-playwright` plugin.",
+          "No separate drivers: Playwright downloads and drives its own browser builds.",
+          "Auto-waiting removes most explicit waits and sleeps."
+        ],
+        "remember": "Selenium: driver per browser + manual waits. Playwright: bundled browsers + auto-waiting."
+      }
+    },
+    {
+      "title": "Browser, context and page",
+      "steps": [
+        {
+          "type": "learn",
+          "title": "Three layers",
+          "body": "- **Browser**: one running browser process.\n- **BrowserContext**: an isolated session inside it, like a fresh incognito window with its own cookies and storage. Creating one is very fast.\n- **Page**: one tab inside a context.\n\nTests get their isolation from contexts, without restarting the browser."
+        },
+        {
+          "type": "learn",
+          "title": "The layers in code",
+          "body": "This plain script (no pytest yet) uses the **sync API**: each line finishes before the next starts.",
+          "code": "from playwright.sync_api import sync_playwright\n\nwith sync_playwright() as p:\n    browser = p.chromium.launch(headless=False)\n    context = browser.new_context()\n    page = context.new_page()\n    page.goto(\"https://www.saucedemo.com\")\n    print(page.title())  # Swag Labs\n    browser.close()"
+        },
+        {
+          "type": "order",
+          "prompt": "Order the calls needed to open a web page.",
+          "items": [
+            "with sync_playwright() as p:",
+            "browser = p.chromium.launch()",
+            "context = browser.new_context()",
+            "page = context.new_page()",
+            "page.goto(url)"
+          ],
+          "explain": "Each layer is created from the one above it: Playwright → browser → context → page."
+        },
+        {
+          "type": "fill",
+          "prompt": "Complete the code to launch Firefox and open a tab.",
+          "code": "browser = p.___.launch()\ncontext = browser.new_context()\npage = context.___()",
+          "answers": [
+            [
+              "firefox"
+            ],
+            [
+              "new_page"
+            ]
+          ],
+          "explain": "p.firefox, p.chromium and p.webkit are the three browser types. A tab is created with context.new_page()."
+        },
+        {
+          "type": "choice",
+          "question": "One test needs an admin and a normal user logged in at the same time. What do you create?",
+          "options": [
+            "Two browsers",
+            "Two contexts in one browser",
+            "Two pages in one context",
+            "One page and switch cookies"
+          ],
+          "answer": 1,
+          "explain": "Each context has its own cookies and storage, so two contexts behave like two separate users. Pages in one context share the same login."
+        }
+      ],
+      "notes": {
+        "points": [
+          "Browser = process, BrowserContext = isolated session, Page = tab.",
+          "Contexts are cheap and isolated: one per test, or one per user.",
+          "Pages in the same context share cookies and login.",
+          "The sync API runs each line in order; use it with pytest."
+        ],
+        "code": "browser = p.chromium.launch()\ncontext = browser.new_context()\npage = context.new_page()\npage.goto(\"https://www.saucedemo.com\")",
+        "remember": "Need separate users? Separate contexts."
+      }
+    },
+    {
+      "title": "Your first test",
+      "steps": [
+        {
+          "type": "learn",
+          "title": "The page fixture",
+          "body": "With **pytest-playwright** you don't create the browser yourself. Ask for the `page` fixture and you get a fresh page in a new context for every test.",
+          "code": "from playwright.sync_api import Page, expect\n\ndef test_login(page: Page):\n    page.goto(\"https://www.saucedemo.com\")\n    page.get_by_placeholder(\"Username\").fill(\"standard_user\")\n    page.get_by_placeholder(\"Password\").fill(\"secret_sauce\")\n    page.get_by_role(\"button\", name=\"Login\").click()\n    expect(page).to_have_url(\"https://www.saucedemo.com/inventory.html\")"
+        },
+        {
+          "type": "choice",
+          "question": "What does each test receive from the `page` fixture?",
+          "options": [
+            "The same page shared by all tests",
+            "A fresh page in a new browser context",
+            "A new browser process",
+            "A page that is already logged in"
+          ],
+          "answer": 1,
+          "explain": "Every test gets a new context, so cookies and storage never leak between tests."
+        },
+        {
+          "type": "learn",
+          "title": "Running tests",
+          "body": "By default tests run **headless** (no visible window) in **Chromium**. Useful options:\n\n- `--headed` to watch the browser\n- `--slowmo 500` to slow each action by 500 ms\n- `--browser firefox` to switch engine",
+          "code": "pytest my-work/basics -v --headed --slowmo 500"
+        },
+        {
+          "type": "fill",
+          "prompt": "Run the tests in WebKit with a visible window.",
+          "code": "pytest --browser ___ --___",
+          "answers": [
+            [
+              "webkit"
+            ],
+            [
+              "headed"
+            ]
+          ],
+          "explain": "--browser picks the engine (chromium, firefox, webkit) and --headed shows the window."
+        },
+        {
+          "type": "learn",
+          "title": "Record actions with codegen",
+          "body": "`playwright codegen` opens a browser and writes code as you click. Use it to discover good locators quickly, then clean the code up yourself.",
+          "code": "playwright codegen https://www.saucedemo.com"
+        },
+        {
+          "type": "practice",
+          "title": "Write your first test",
+          "body": "Copy the exercise into `my-work/basics/`. Log in to saucedemo as `standard_user` / `secret_sauce`, then check the URL ends with `inventory.html` and the page title is **Swag Labs**. Run it once headless and once with `--headed`.",
+          "file": "course/basics/exercises/test_ex01_first_test.py",
+          "command": "pytest my-work/basics -v --headed",
+          "solution": "course/basics/solutions/test_ex01_first_test.py"
+        }
+      ],
+      "notes": {
+        "points": [
+          "pytest-playwright gives each test a fresh `page` in a new context.",
+          "Default run: headless Chromium. Add --headed, --slowmo, --browser as needed.",
+          "`expect(page).to_have_url(...)` waits and retries until the URL matches.",
+          "`playwright codegen <url>` records actions; use it to find locators."
+        ],
+        "code": "import re\nfrom playwright.sync_api import Page, expect\n\ndef test_login(page: Page):\n    page.goto(\"https://www.saucedemo.com\")\n    page.get_by_role(\"button\", name=\"Login\").click()\n    expect(page).to_have_url(re.compile(\"inventory\"))",
+        "remember": "Ask for `page`, act, then `expect`. pytest-playwright handles browser and cleanup."
+      }
+    }
+  ],
+  "interview": [
+    {
+      "q": "How is Playwright different from Selenium?",
+      "a": "Playwright drives its own builds of Chromium, Firefox and WebKit directly instead of going through a WebDriver driver per browser. It auto-waits before actions, has web-first assertions that retry, isolates tests with cheap browser contexts, and includes tracing, codegen and network control out of the box."
+    },
+    {
+      "q": "What are Browser, BrowserContext and Page?",
+      "a": "Browser is the running browser process. A BrowserContext is an isolated session with its own cookies and storage, like an incognito window. A Page is a tab in a context. Tests get isolation from new contexts without restarting the browser."
+    },
+    {
+      "q": "Why are browser contexts useful for testing?",
+      "a": "They are fast to create and fully isolated, so every test can start clean, and one test can simulate several users at once by using several contexts."
+    }
+  ]
+}

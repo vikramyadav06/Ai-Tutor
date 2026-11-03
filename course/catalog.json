@@ -1,0 +1,98 @@
+{
+  "_note": "Single source of truth for modules and plan rules. Read by start.py, the web app (index.html) and AI tutors. 'requires' = modules that must come first. Each module's content lives in <folder>/lesson.json.",
+  "modules": [
+    {"id": "python-basics", "title": "Python essentials for testers", "folder": "course/python-basics", "hours": 4, "kind": "optional", "requires": []},
+    {"id": "setup", "title": "Setup", "folder": "course/setup", "hours": 1, "kind": "core", "requires": []},
+    {"id": "basics", "title": "Basics & architecture", "folder": "course/basics", "hours": 3, "kind": "core", "requires": ["setup"]},
+    {"id": "locators", "title": "Locators", "folder": "course/locators", "hours": 3, "kind": "core", "requires": ["basics"]},
+    {"id": "actions", "title": "Actions & tricky UI", "folder": "course/actions", "hours": 3, "kind": "core", "requires": ["locators"]},
+    {"id": "assertions", "title": "Assertions & waiting", "folder": "course/assertions", "hours": 3, "kind": "core", "requires": ["actions"]},
+    {"id": "pytest-playwright", "title": "pytest-playwright deep dive", "folder": "course/pytest-playwright", "hours": 3, "kind": "core", "requires": ["assertions"]},
+    {"id": "selenium-migration", "title": "Migrating from Selenium to Playwright", "folder": "course/selenium-migration", "hours": 3, "kind": "optional", "requires": ["pytest-playwright"]},
+    {"id": "pom", "title": "Page Object Model", "folder": "course/pom", "hours": 3, "kind": "focus", "requires": ["pytest-playwright"]},
+    {"id": "auth-debugging", "title": "Auth, sessions & debugging", "folder": "course/auth-debugging", "hours": 3, "kind": "focus", "requires": ["pom"]},
+    {"id": "api", "title": "API testing", "folder": "course/api", "hours": 3, "kind": "focus", "requires": ["pytest-playwright"]},
+    {"id": "network", "title": "Network control & mocking", "folder": "course/network", "hours": 3, "kind": "focus", "requires": ["pytest-playwright"]},
+    {"id": "visual-a11y", "title": "Visual & accessibility testing", "folder": "course/visual-a11y", "hours": 3, "kind": "focus", "requires": ["pytest-playwright"]},
+    {"id": "cross-browser", "title": "Cross-browser testing", "folder": "course/cross-browser", "hours": 3, "kind": "focus", "requires": ["pytest-playwright"]},
+    {"id": "cross-device", "title": "Cross-device (mobile emulation)", "folder": "course/cross-device", "hours": 3, "kind": "focus", "requires": ["pytest-playwright"]},
+    {"id": "parallel-allure", "title": "Parallel runs & Allure reports", "folder": "course/parallel-allure", "hours": 3, "kind": "focus", "requires": ["pom"]},
+    {"id": "ci", "title": "CI with GitHub Actions", "folder": "course/ci", "hours": 3, "kind": "focus", "requires": ["pom"]},
+    {"id": "portfolio", "title": "Portfolio project", "folder": "course/portfolio", "hours": 4, "kind": "optional", "requires": ["pom"]},
+    {"id": "interview-prep", "title": "Interview preparation", "folder": "course/interview-prep", "hours": 3, "kind": "optional", "requires": ["pytest-playwright"]}
+  ],
+  "focus_areas": {
+    "framework": {"label": "Framework design (POM, auth reuse, debugging)", "modules": ["pom", "auth-debugging"]},
+    "api": {"label": "API testing", "modules": ["api"]},
+    "network": {"label": "Network mocking", "modules": ["network"]},
+    "visual-a11y": {"label": "Visual & accessibility testing", "modules": ["visual-a11y"]},
+    "cross-browser": {"label": "Cross-browser testing", "modules": ["cross-browser"]},
+    "cross-device": {"label": "Cross-device / mobile emulation", "modules": ["cross-device"]},
+    "reporting": {"label": "Parallel runs & reporting (Allure)", "modules": ["parallel-allure"]},
+    "ci": {"label": "CI/CD with GitHub Actions", "modules": ["ci"]}
+  },
+  "rules": {
+    "python_primer": {
+      "when_python_level": "none",
+      "module": "python-basics"
+    },
+    "goal_extras": {
+      "job-switch": {
+        "focus": [
+          "framework",
+          "reporting",
+          "ci"
+        ],
+        "modules": [
+          "portfolio",
+          "interview-prep"
+        ]
+      },
+      "use-at-work": {
+        "focus": [
+          "framework"
+        ],
+        "modules": []
+      },
+      "migrate": {
+        "focus": [
+          "framework"
+        ],
+        "modules": [
+          "selenium-migration"
+        ]
+      },
+      "career-start": {
+        "focus": [
+          "framework"
+        ],
+        "modules": [
+          "portfolio",
+          "interview-prep"
+        ]
+      },
+      "explore": {
+        "focus": [],
+        "modules": []
+      }
+    },
+    "quick_pace": {
+      "when": {
+        "selenium_level": "strong",
+        "python_level": "comfortable"
+      },
+      "modules": [
+        "basics",
+        "locators",
+        "actions",
+        "assertions"
+      ],
+      "hours_saved": 1,
+      "note": "Quick pace: you know the basics"
+    },
+    "schedule_last": [
+      "portfolio",
+      "interview-prep"
+    ]
+  }
+}

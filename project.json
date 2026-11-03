@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "upstream_repo": "OWNER/ai-tutor",
+  "collector": {
+    "enabled": false,
+    "keys": [
+      {"key_id": "k1", "public_key_b64": "REPLACE_WITH_OWNER_PUBLIC_KEY", "status": "active"}
+    ],
+    "data_branch": "tutor-data",
+    "student_collection": false,
+    "max_record_bytes": 262144
+  }
+}

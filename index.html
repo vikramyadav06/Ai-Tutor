@@ -1,0 +1,937 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Playwright Python Course</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one focused column (max 680px) for learning; the plan reads like a test run, one row per module. */
+:root {
+  --ground: #EDF0F5;
+  --surface: #FFFFFF;
+  --ink: #18202E;
+  --muted: #586276;
+  --line: #D3D9E3;
+  --accent: #2F4BD6;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #E3E8FC;
+  --pass: #157A53;
+  --pass-soft: #DCF0E6;
+  --fail: #B93A26;
+  --fail-soft: #FAE2DC;
+  --code-bg: #1A2232;
+  --code-ink: #E3E8F1;
+  --code-key: #9DB2FF;
+  --code-str: #8FD6A8;
+  --code-com: #8792A8;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --font-code: "JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+  --r: 14px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #0E131D; --surface: #161D2A; --ink: #E7EBF2; --muted: #9AA4B7; --line: #283245;
+    --accent: #8299FF; --accent-ink: #0E131D; --accent-soft: #1F2848;
+    --pass: #4CC38A; --pass-soft: #14332A; --fail: #F07B65; --fail-soft: #3B201B;
+    --code-bg: #0A0F18; --code-ink: #E3E8F1; --code-key: #9DB2FF; --code-str: #8FD6A8; --code-com: #7E89A0;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --ground: #0E131D; --surface: #161D2A; --ink: #E7EBF2; --muted: #9AA4B7; --line: #283245;
+  --accent: #8299FF; --accent-ink: #0E131D; --accent-soft: #1F2848;
+  --pass: #4CC38A; --pass-soft: #14332A; --fail: #F07B65; --fail-soft: #3B201B;
+  --code-bg: #0A0F18; --code-ink: #E3E8F1; --code-key: #9DB2FF; --code-str: #8FD6A8; --code-com: #7E89A0;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--ground); color: var(--ink);
+  font: 17px/1.6 var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--ground); }
+[hidden] { display: none !important; }
+a { color: var(--accent); }
+button, input, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+
+.topbar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  max-width: 960px; margin: 0 auto; padding-block: 14px;
+  background: var(--ground);
+}
+.brand { font: 800 19px/1 var(--font-display); letter-spacing: -0.01em; color: var(--ink); text-decoration: none; display: flex; align-items: center; gap: 10px; }
+.brand-mark { display: inline-flex; gap: 3px; }
+.brand-mark i { width: 7px; height: 7px; border-radius: 2px; background: var(--pass); }
+.brand-mark i:last-child { background: var(--accent); }
+.nav { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
+.nav a { padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 700; font-size: 15px; }
+.nav a[aria-current="page"] { background: var(--surface); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
+
+main { max-width: 960px; margin: 0 auto; padding-block: 8px 80px; }
+.col { max-width: 680px; margin: 0 auto; }
+h1, h2, h3 { font-family: var(--font-display); line-height: 1.15; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(30px, 5vw, 44px); font-weight: 800; letter-spacing: -0.02em; }
+h2 { font-size: 26px; font-weight: 800; letter-spacing: -0.01em; }
+h3 { font-size: 19px; font-weight: 600; }
+p { margin: 0; }
+.muted { color: var(--muted); }
+.stack { display: flex; flex-direction: column; gap: 16px; }
+.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 24px; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 46px; padding: 0 22px; border-radius: 12px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); font-weight: 700; cursor: pointer; text-decoration: none;
+}
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.ghost { background: transparent; border-color: transparent; color: var(--muted); }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; background: var(--accent-soft); color: var(--accent); }
+.chip.pass { background: var(--pass-soft); color: var(--pass); }
+.chip.soon { background: transparent; color: var(--muted); box-shadow: inset 0 0 0 1px var(--line); }
+
+/* Run line: one mark per task, like pytest's progress dots */
+.runline { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.runline i { width: 12px; height: 12px; border-radius: 3px; background: var(--line); }
+.runline i.done { background: var(--pass); }
+.runline i.miss { background: var(--fail); }
+.runline i.now { background: var(--surface); box-shadow: inset 0 0 0 3px var(--accent); }
+.runline.small i { width: 8px; height: 8px; border-radius: 2px; }
+
+/* Onboarding */
+.q-progress { height: 6px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.q-progress span { display: block; height: 100%; background: var(--accent); transition: width .25s ease; }
+.options { display: grid; gap: 10px; }
+.opt {
+  display: flex; align-items: center; gap: 14px; text-align: left; width: 100%;
+  padding: 14px 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); cursor: pointer;
+}
+.opt:hover { border-color: var(--muted); }
+.opt[aria-pressed="true"], .opt[aria-checked="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-soft); }
+.opt .key { flex: none; width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font: 600 14px var(--font-code); background: var(--ground); color: var(--muted); }
+.opt.right { border-color: var(--pass); background: var(--pass-soft); box-shadow: inset 0 0 0 1px var(--pass); }
+.opt.wrong { border-color: var(--fail); background: var(--fail-soft); box-shadow: inset 0 0 0 1px var(--fail); }
+.field { width: 100%; min-height: 50px; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); }
+.field:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+textarea.field { min-height: 110px; resize: vertical; }
+
+/* Plan */
+.plan { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); overflow: hidden; }
+.plan li { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 14px 18px; border-top: 1px solid var(--line); }
+.plan li:first-child { border-top: 0; }
+.plan .num { font: 600 14px var(--font-code); color: var(--muted); font-variant-numeric: tabular-nums; }
+.plan .title { font-weight: 700; }
+.plan .meta { font-size: 14px; color: var(--muted); }
+.plan li.current { background: var(--accent-soft); }
+.plan a.rowlink { color: inherit; text-decoration: none; }
+.plan a.rowlink:hover .title { text-decoration: underline; }
+
+.next { display: grid; gap: 14px; padding: 26px; border-radius: var(--r); background: var(--accent); color: var(--accent-ink); }
+.next .muted { color: inherit; opacity: .8; }
+.next .btn { background: var(--accent-ink); color: var(--accent); border-color: var(--accent-ink); justify-self: start; }
+
+/* Player */
+.player-head { display: grid; gap: 10px; margin-bottom: 18px; }
+.crumb { font-size: 15px; color: var(--muted); }
+.crumb a { color: var(--muted); }
+.step { display: grid; gap: 18px; }
+.step-kind { font-size: 14px; font-weight: 700; color: var(--accent); }
+.body p + p, .body ul + p, .body p + ul { margin-top: 12px; }
+.body ul { margin: 0; padding-left: 22px; }
+.body li + li { margin-top: 4px; }
+code { font: 0.88em var(--font-code); background: var(--accent-soft); color: var(--ink); padding: 1px 6px; border-radius: 6px; }
+pre.code {
+  margin: 0; padding: 16px 18px; border-radius: 12px; background: var(--code-bg); color: var(--code-ink);
+  font: 14px/1.65 var(--font-code); overflow-x: auto; white-space: pre; tab-size: 4;
+}
+pre.code code { background: none; padding: 0; color: inherit; font: inherit; }
+.tk-k { color: var(--code-key); }
+.tk-s { color: var(--code-str); }
+.tk-c { color: var(--code-com); font-style: italic; }
+.blank { font: inherit; width: 11ch; min-width: 6ch; padding: 1px 6px; border-radius: 6px; border: 1px dashed var(--code-key); background: transparent; color: var(--code-ink); }
+.blank:focus { outline: none; border-style: solid; }
+.blank.right { border: 1px solid var(--code-str); color: var(--code-str); }
+.blank.wrong { border: 1px solid var(--fail); }
+.order { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.order li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 10px 10px 10px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.order li span { font: 14px var(--font-code); overflow-wrap: anywhere; }
+.order .mv { display: flex; gap: 4px; }
+.order .mv button { width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--line); background: var(--ground); cursor: pointer; }
+.order.checked li.right { border-color: var(--pass); background: var(--pass-soft); }
+.order.checked li.wrong { border-color: var(--fail); background: var(--fail-soft); }
+.feedback { padding: 14px 16px; border-radius: 12px; border-left: 4px solid var(--pass); background: var(--pass-soft); }
+.feedback.bad { border-left-color: var(--fail); background: var(--fail-soft); }
+.feedback strong { display: block; margin-bottom: 2px; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; margin-top: 22px; }
+.actions .spacer { margin-right: auto; }
+.kv { display: grid; gap: 6px; }
+.kv-label { font-size: 14px; font-weight: 700; color: var(--muted); }
+.copyable { display: flex; gap: 8px; align-items: stretch; }
+.copyable pre.code { flex: 1; min-width: 0; }
+
+/* Batch result: the pytest summary bar */
+.resultbar {
+  display: flex; align-items: center; justify-content: center; gap: 14px;
+  padding: 18px; border-radius: 12px; background: var(--pass-soft); color: var(--pass);
+  font: 600 18px var(--font-code); text-align: center;
+}
+.resultbar::before, .resultbar::after { content: ""; flex: 1; height: 2px; background: currentColor; opacity: .5; }
+.notes-card { display: grid; gap: 16px; }
+.notes-card ul { margin: 0; padding-left: 22px; }
+.notes-card li + li { margin-top: 6px; }
+.remember { padding: 14px 16px; border-radius: 12px; background: var(--accent-soft); font-weight: 700; }
+
+/* Notes page */
+.notes-mod { display: grid; gap: 14px; }
+.notes-batch { border-top: 1px solid var(--line); padding-top: 16px; display: grid; gap: 12px; }
+.empty { text-align: center; padding: 48px 24px; }
+details.iv { border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; background: var(--surface); }
+details.iv summary { cursor: pointer; font-weight: 700; }
+details.iv p { margin-top: 10px; }
+.toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--ground); padding: 10px 18px; border-radius: 999px; font-weight: 700; z-index: 20; }
+.confirm { border: 1px solid var(--fail); background: var(--fail-soft); border-radius: 12px; padding: 16px; display: grid; gap: 12px; }
+
+@media (max-width: 700px) {
+  .topbar { position: static; }
+}
+@media (max-width: 560px) {
+  body { font-size: 16px; }
+  .actions { flex-direction: column-reverse; align-items: stretch; }
+  .actions .spacer { margin-right: 0; }
+  .panel { padding: 18px; }
+  .plan li { grid-template-columns: 26px minmax(0, 1fr); }
+  .plan li > :last-child { grid-column: 2; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="#home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>Playwright Python Course</a>
+  <nav class="nav" id="nav" aria-label="Main">
+    <a href="#home" data-r="home">My plan</a>
+    <a href="#notes" data-r="notes">Notes</a>
+    <a href="#agent" data-r="agent">AI tutor &amp; backup</a>
+  </nav>
+</header>
+<main id="app" aria-live="polite"><p class="muted col">Loading the course…</p></main>
+<script src="course/bundle.js" onerror="window.COURSE_BUNDLE = window.COURSE_BUNDLE || null"></script>
+<script>
+"use strict";
+/* ---------- Content loading (same files AI tutors and start.py read) ---------- */
+const STORE_KEY = "pw-course-v1";
+let CATALOG = null;
+const LESSONS = {};          // id -> lesson | null (not written yet)
+const FILES = {};            // path -> text
+
+async function getJSON(path) {
+  const r = await fetch(path, { cache: "no-cache" });
+  if (!r.ok) throw new Error(r.status);
+  return r.json();
+}
+async function loadCatalog() {
+  const b = window.COURSE_BUNDLE;
+  if (b && b.catalog) {
+    CATALOG = b.catalog;
+    for (const m of CATALOG.modules) LESSONS[m.id] = b.lessons[m.id] || null;
+    Object.assign(FILES, b.files || {});
+    return;
+  }
+  CATALOG = await getJSON("course/catalog.json");
+}
+async function loadLesson(id) {
+  if (id in LESSONS) return LESSONS[id];
+  const mod = CATALOG.modules.find(m => m.id === id);
+  try { LESSONS[id] = await getJSON(mod.folder + "/lesson.json"); }
+  catch { LESSONS[id] = null; }
+  return LESSONS[id];
+}
+async function loadFile(path) {
+  if (path in FILES) return FILES[path];
+  try { const r = await fetch(path, { cache: "no-cache" }); FILES[path] = r.ok ? await r.text() : null; }
+  catch { FILES[path] = null; }
+  return FILES[path];
+}
+
+/* ---------- Learner state (this browser only; export/import on the AI tutor page) ---------- */
+let S = blankState();
+function blankState() { return { profile: null, plan: [], progress: {}, weak: [], log: [] }; }
+function load() {
+  try { const raw = localStorage.getItem(STORE_KEY); if (raw) S = Object.assign(blankState(), JSON.parse(raw)); } catch {}
+}
+function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); } catch {} }
+function prog(id) {
+  if (!S.progress[id]) S.progress[id] = { b: 0, s: 0, doneBatches: [], marks: {}, complete: false };
+  return S.progress[id];
+}
+
+/* ---------- Plan builder (mirrors start.py; rules live in catalog.json) ---------- */
+function buildPlan(profile) {
+  const rules = CATALOG.rules;
+  const mods = Object.fromEntries(CATALOG.modules.map(m => [m.id, m]));
+  const reasons = {};
+  const add = (id, reason) => {
+    if (reasons[id]) return;
+    for (const req of mods[id].requires) add(req, "Needed first");
+    reasons[id] = reason;
+  };
+  if (profile.python_level === rules.python_primer.when_python_level) add(rules.python_primer.module, "Python foundation");
+  for (const m of CATALOG.modules) if (m.kind === "core") add(m.id, "Core");
+  const extras = rules.goal_extras[profile.goal] || { focus: [], modules: [] };
+  for (const area of profile.focus || []) for (const id of (CATALOG.focus_areas[area] || {}).modules || []) add(id, "Your choice");
+  for (const area of extras.focus) for (const id of CATALOG.focus_areas[area].modules) add(id, "For your goal");
+  for (const id of extras.modules) add(id, "For your goal");
+  const last = rules.schedule_last;
+  const ids = CATALOG.modules.map(m => m.id).filter(id => reasons[id] && !last.includes(id))
+    .concat(last.filter(id => reasons[id]));
+  const q = rules.quick_pace;
+  const quick = Object.entries(q.when).every(([k, v]) => profile[k] === v);
+  const perDay = Number(profile.hours_per_day) || 2;
+  const start = new Date(profile.start_date + "T00:00:00");
+  let used = 0;
+  return ids.map(id => {
+    const m = mods[id];
+    let hours = m.hours, note = "";
+    if (quick && q.modules.includes(id)) { hours = Math.max(1, hours - q.hours_saved); note = q.note; }
+    used += hours;
+    const d = new Date(start); d.setDate(d.getDate() + Math.max(1, Math.ceil(used / perDay)) - 1);
+    return { id, title: m.title, hours, reason: reasons[id], note, target: isoDate(d) };
+  });
+}
+function isoDate(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
+function niceDate(iso) { return new Date(iso + "T00:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short" }); }
+
+/* ---------- Onboarding questions (same fields as learner/profile.json) ---------- */
+const QUESTIONS = () => [
+  { key: "name", type: "text", q: "What's your name?", hint: "So the course can greet you." },
+  { key: "role", type: "choice", q: "What best describes your current role?", options: [
+    ["manual-qa", "Manual tester / QA"], ["automation-qa", "Automation QA (Selenium, Cypress, etc.)"],
+    ["developer", "Developer"], ["student", "Student / fresher"], ["other", "Other"]] },
+  { key: "python_level", type: "choice", q: "How comfortable are you with Python?", options: [
+    ["none", "New to Python"], ["basic", "Basic: variables, functions, loops"], ["comfortable", "Comfortable: classes, modules, pytest"]] },
+  { key: "selenium_level", type: "choice", q: "Have you used Selenium?", options: [
+    ["none", "Never used it"], ["some", "Some experience"], ["strong", "I use it regularly at work"]] },
+  { key: "goal", type: "choice", q: "What's your main goal?", options: [
+    ["job-switch", "Switch jobs and prepare for interviews"], ["use-at-work", "Use Playwright in my current job"],
+    ["migrate", "Migrate Selenium tests to Playwright"], ["career-start", "Start a career in test automation"],
+    ["explore", "Just exploring"]] },
+  { key: "focus", type: "multi", q: "Beyond the core lessons, what do you want to learn?",
+    hint: "Pick any. Your goal may add a few more.",
+    options: Object.entries(CATALOG.focus_areas).map(([k, v]) => [k, v.label]) },
+  { key: "hours_per_day", type: "choice", q: "How much time can you give per day?", options: [
+    ["1", "About 1 hour"], ["2", "About 2 hours"], ["3", "3 hours or more"]] },
+  { key: "pace_weeks", type: "choice", q: "How fast do you want to go?", options: [
+    ["2", "Fast: about 2 weeks"], ["4", "Steady: about 4 weeks"], ["8", "Relaxed: about 8 weeks"], ["0", "No deadline"]] },
+  { key: "learning_style", type: "choice", q: "How do you like to learn?", options: [
+    ["hands-on", "Mostly hands-on, short theory"], ["balanced", "Balanced"], ["theory-first", "Understand concepts well before coding"]] },
+  { key: "language", type: "text", q: "Preferred language for explanations?", hint: "Used if you learn with an AI tutor. Web lessons are in English.", def: "English" },
+];
+let ob = { i: 0, a: {} };
+
+/* ---------- Small helpers ---------- */
+const $app = () => document.getElementById("app");
+function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function inline(s) {
+  return esc(s)
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+}
+function md(text) {
+  return String(text || "").split(/\n{2,}/).map(block => {
+    const lines = block.split("\n");
+    if (lines.every(l => /^- /.test(l))) return "<ul>" + lines.map(l => `<li>${inline(l.slice(2))}</li>`).join("") + "</ul>";
+    return `<p>${lines.map(inline).join("<br>")}</p>`;
+  }).join("");
+}
+function hl(src) {
+  const re = /(#[^\n]*)|("""[\s\S]*?"""|'''[\s\S]*?'''|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')|(?<![-\w.])(from|import|def|class|with|as|return|for|in|if|else|elif|try|except|await|async|None|True|False|assert|lambda|yield)\b/g;
+  let out = "", last = 0, m;
+  while ((m = re.exec(src))) {
+    out += esc(src.slice(last, m.index));
+    const cls = m[1] ? "tk-c" : m[2] ? "tk-s" : "tk-k";
+    out += `<span class="${cls}">${esc(m[0])}</span>`;
+    last = re.lastIndex;
+  }
+  return out + esc(src.slice(last));
+}
+function codeBlock(src) { return `<pre class="code"><code>${hl(src)}</code></pre>`; }
+function toast(msg) {
+  const t = document.createElement("div"); t.className = "toast"; t.textContent = msg; t.setAttribute("role", "status");
+  document.body.appendChild(t); setTimeout(() => t.remove(), 1800);
+}
+async function copy(text, btn) {
+  try { await navigator.clipboard.writeText(text); toast("Copied"); }
+  catch {
+    const ta = btn && btn.parentElement && btn.parentElement.querySelector("textarea, pre");
+    if (ta) { const r = document.createRange(); r.selectNodeContents(ta); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); }
+    toast("Press Ctrl+C to copy");
+  }
+}
+function setNav(route) {
+  for (const a of document.querySelectorAll("#nav a")) a.dataset.r === route ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current");
+  document.getElementById("nav").hidden = !S.profile;
+}
+function go(hash) { if (location.hash === "#" + hash) route(); else location.hash = hash; }
+function stepCount(lesson) { return lesson.batches.reduce((n, b) => n + b.steps.length, 0); }
+
+/* ---------- Router ---------- */
+async function route() {
+  const h = (location.hash || "").slice(1);
+  window.scrollTo(0, 0);
+  if (!S.profile && h !== "welcome") { renderWelcome(); return; }
+  if (h.startsWith("learn-")) return renderPlayer(h.slice(6));
+  if (h.startsWith("module-")) return renderModuleDone(h.slice(7));
+  if (h === "notes") return renderNotes();
+  if (h === "agent") return renderAgent();
+  if (h === "welcome") return renderWelcome();
+  return renderHome();
+}
+
+/* ---------- Welcome + onboarding ---------- */
+function renderWelcome() {
+  setNav("welcome");
+  if (ob.i === -1 || (!S.profile && ob.i === 0 && !ob.started)) {
+    $app().innerHTML = `
+      <section class="col stack" style="padding-block:24px">
+        <div class="runline" aria-hidden="true"><i class="done"></i><i class="done"></i><i class="done"></i><i class="now"></i><i></i><i></i></div>
+        <h1>Learn Playwright with Python, one small task at a time.</h1>
+        <p class="muted">Answer 10 quick questions about your role, experience and goal. You'll get a plan with only the lessons you need, short tasks with instant checks, and notes to revise after every batch.</p>
+        <div class="row"><button class="btn primary" id="begin">Build my plan</button><span class="muted">About 2 minutes</span></div>
+        <p class="muted" style="font-size:15px">Your answers and progress stay in this browser. You can back them up or hand them to an AI tutor any time.</p>
+      </section>`;
+    document.getElementById("begin").onclick = () => { ob.started = true; ob.i = 0; renderQuestion(); };
+    return;
+  }
+  renderQuestion();
+}
+function renderQuestion() {
+  const qs = QUESTIONS();
+  const q = qs[ob.i];
+  const pct = Math.round((ob.i / qs.length) * 100);
+  const val = ob.a[q.key];
+  let body = "";
+  if (q.type === "text") {
+    body = `<input class="field" id="qinput" type="text" autocomplete="off" value="${esc(val ?? q.def ?? "")}" aria-label="${esc(q.q)}">`;
+  } else {
+    body = `<div class="options" role="${q.type === "multi" ? "group" : "radiogroup"}" aria-label="${esc(q.q)}">` +
+      q.options.map(([k, label], i) => {
+        const on = q.type === "multi" ? (val || []).includes(k) : val === k;
+        return `<button class="opt" data-k="${esc(k)}" ${q.type === "multi" ? `aria-pressed="${on}"` : `role="radio" aria-checked="${on}"`}><span class="key">${i + 1}</span><span>${esc(label)}</span></button>`;
+      }).join("") + `</div>`;
+  }
+  $app().innerHTML = `
+    <section class="col stack" style="padding-block:16px">
+      <div class="q-progress" aria-hidden="true"><span style="width:${pct}%"></span></div>
+      <p class="muted">Question ${ob.i + 1} of ${qs.length}</p>
+      <h2>${esc(q.q)}</h2>
+      ${q.hint ? `<p class="muted">${esc(q.hint)}</p>` : ""}
+      ${body}
+      <div class="actions">
+        ${ob.i > 0 ? `<button class="btn ghost spacer" id="back">Back</button>` : `<span class="spacer"></span>`}
+        <button class="btn primary" id="next">${ob.i === qs.length - 1 ? "Build my plan" : "Next"}</button>
+      </div>
+    </section>`;
+  const next = document.getElementById("next");
+  const valid = () => q.type === "text" ? !!document.getElementById("qinput").value.trim()
+    : q.type === "multi" ? true : !!ob.a[q.key];
+  const refresh = () => { next.disabled = !valid(); };
+  if (q.type === "text") {
+    const inp = document.getElementById("qinput");
+    inp.focus(); inp.oninput = refresh;
+    inp.onkeydown = e => { if (e.key === "Enter" && valid()) next.click(); };
+  } else {
+    for (const b of document.querySelectorAll(".opt")) b.onclick = () => {
+      if (q.type === "multi") {
+        const set = new Set(ob.a[q.key] || []);
+        set.has(b.dataset.k) ? set.delete(b.dataset.k) : set.add(b.dataset.k);
+        ob.a[q.key] = [...set]; b.setAttribute("aria-pressed", set.has(b.dataset.k));
+      } else {
+        ob.a[q.key] = b.dataset.k;
+        for (const o of document.querySelectorAll(".opt")) o.setAttribute("aria-checked", o === b);
+        setTimeout(() => next.click(), 160);
+      }
+      refresh();
+    };
+  }
+  refresh();
+  next.onclick = () => {
+    if (!valid()) return;
+    if (q.type === "text") ob.a[q.key] = document.getElementById("qinput").value.trim();
+    if (q.type === "multi" && !ob.a[q.key]) ob.a[q.key] = [];
+    if (ob.i < qs.length - 1) { ob.i++; renderQuestion(); } else finishOnboarding();
+  };
+  const back = document.getElementById("back");
+  if (back) back.onclick = () => { ob.i--; renderQuestion(); };
+}
+function finishOnboarding() {
+  const a = ob.a;
+  S.profile = {
+    name: a.name, role: a.role, python_level: a.python_level, selenium_level: a.selenium_level,
+    goal: a.goal, focus: a.focus || [], hours_per_day: Number(a.hours_per_day), pace_weeks: Number(a.pace_weeks),
+    learning_style: a.learning_style, language: a.language || "English", notes: "", start_date: isoDate(new Date()),
+  };
+  S.plan = buildPlan(S.profile);
+  save();
+  ob = { i: 0, a: {} };
+  go("home");
+}
+
+/* ---------- Home: the plan as a test run ---------- */
+async function renderHome() {
+  setNav("home");
+  await Promise.all(S.plan.map(p => loadLesson(p.id)));
+  const total = S.plan.reduce((n, p) => n + p.hours, 0);
+  const days = Math.max(1, Math.ceil(total / (S.profile.hours_per_day || 2)));
+  const doneCount = S.plan.filter(p => prog(p.id).complete).length;
+  const next = S.plan.find(p => !prog(p.id).complete && LESSONS[p.id]);
+  let nextHTML = "";
+  if (next) {
+    const L = LESSONS[next.id], pr = prog(next.id);
+    const bi = Math.min(pr.b, L.batches.length - 1);
+    const started = pr.b > 0 || pr.s > 0;
+    nextHTML = `
+      <section class="next" aria-label="Next up">
+        <p class="muted">${started ? "Continue where you left off" : "Up next"}</p>
+        <h2>${esc(L.title)}</h2>
+        <p>Batch ${bi + 1} of ${L.batches.length}: ${esc(L.batches[bi].title)} · ${L.batches[bi].steps.length} short tasks</p>
+        <a class="btn" href="#learn-${next.id}">${started ? "Continue" : "Start"}</a>
+      </section>`;
+  } else if (doneCount === S.plan.length) {
+    nextHTML = `<section class="panel stack"><div class="resultbar">${S.plan.length} modules passed</div><p>You've finished your whole plan. Revise from your Notes, or add topics by starting over on the AI tutor &amp; backup page.</p></section>`;
+  } else {
+    nextHTML = `<section class="panel stack"><h3>You're ahead of the course</h3><p class="muted">Your next modules are still being written. Revise your Notes meanwhile, or check back soon.</p></section>`;
+  }
+  const pace = S.profile.pace_weeks;
+  const paceNote = pace && days > pace * 7
+    ? `<p class="muted" style="font-size:15px">To finish in ${pace} weeks you'd need about ${(total / (pace * 7)).toFixed(1)} hours a day.</p>` : "";
+  const rows = S.plan.map((p, i) => {
+    const L = LESSONS[p.id], pr = prog(p.id);
+    const isNext = next && next.id === p.id;
+    let status, run = "";
+    if (!L) status = `<span class="chip soon">Coming soon</span>`;
+    else if (pr.complete) status = `<a class="chip pass" href="#module-${p.id}">Passed</a>`;
+    else {
+      run = `<div class="runline small" aria-hidden="true">${L.batches.map((b, j) => b.steps.map((s, k) => {
+        const m = pr.marks[`${j}.${k}`]; return `<i class="${m === "ok" ? "done" : m === "miss" ? "miss" : ""}"></i>`; }).join("")).join("")}</div>`;
+      status = isNext ? `<a class="btn primary" href="#learn-${p.id}" style="min-height:38px">${pr.b || pr.s ? "Continue" : "Start"}</a>` : `<a class="btn" href="#learn-${p.id}" style="min-height:38px">Open</a>`;
+    }
+    return `<li class="${isNext ? "current" : ""}">
+      <span class="num">${String(i + 1).padStart(2, "0")}</span>
+      <div class="stack" style="gap:4px;min-width:0">
+        <span class="title">${esc(p.title)}</span>
+        <span class="meta">${esc(p.reason)}${p.note ? " · " + esc(p.note) : ""} · ${p.hours} h · by ${niceDate(p.target)}</span>
+        ${run}
+      </div>
+      <div>${status}</div>
+    </li>`;
+  }).join("");
+  $app().innerHTML = `
+    <div class="col stack" style="gap:22px">
+      <div class="stack" style="gap:6px">
+        <h1>Hi ${esc(S.profile.name)}</h1>
+        <p class="muted">${doneCount} of ${S.plan.length} modules passed · about ${total} hours · target finish ${niceDate(S.plan[S.plan.length - 1].target)}</p>
+        ${paceNote}
+      </div>
+      ${nextHTML}
+      <div class="stack" style="gap:10px">
+        <h3>Your plan</h3>
+        <ol class="plan">${rows}</ol>
+      </div>
+    </div>`;
+}
+
+/* ---------- Player: one task per screen ---------- */
+let cur = null; // { id, lesson, b, s, state }
+async function renderPlayer(id) {
+  setNav("home");
+  const L = await loadLesson(id);
+  if (!L) { $app().innerHTML = `<div class="col panel stack"><h2>This module isn't written yet</h2><p class="muted">It will appear here once it's ready.</p><a class="btn" href="#home">Back to my plan</a></div>`; return; }
+  const pr = prog(id);
+  if (pr.complete && pr.b >= L.batches.length) { pr.b = 0; pr.s = 0; }
+  if (pr.b >= L.batches.length) { pr.b = L.batches.length - 1; pr.s = 0; }
+  cur = { id, lesson: L, state: {} };
+  drawStep();
+}
+function drawStep() {
+  const { id, lesson: L } = cur;
+  const pr = prog(id);
+  const batch = L.batches[pr.b];
+  if (pr.s >= batch.steps.length) return drawBatchNotes();
+  const step = batch.steps[pr.s];
+  cur.state = {};
+  const run = batch.steps.map((_, k) => {
+    const m = pr.marks[`${pr.b}.${k}`];
+    return `<i class="${k === pr.s ? "now" : m === "ok" ? "done" : m === "miss" ? "miss" : ""}"></i>`;
+  }).join("");
+  $app().innerHTML = `
+    <div class="col">
+      <div class="player-head">
+        <p class="crumb"><a href="#home">My plan</a> / ${esc(L.title)}</p>
+        <div class="row" style="justify-content:space-between">
+          <h3>${esc(batch.title)}</h3>
+          <span class="muted" style="font-size:15px">Batch ${pr.b + 1} of ${L.batches.length} · Task ${pr.s + 1} of ${batch.steps.length}</span>
+        </div>
+        <div class="runline" role="img" aria-label="Task ${pr.s + 1} of ${batch.steps.length}">${run}</div>
+      </div>
+      <article class="panel step" id="step">${stepHTML(step)}</article>
+      <div class="actions" id="actions"></div>
+    </div>`;
+  wireStep(step);
+}
+const KIND = { learn: "Learn", choice: "Check yourself", fill: "Fill in the code", order: "Put in order", practice: "Hands-on, on your computer" };
+function stepHTML(st) {
+  const kind = `<p class="step-kind">${KIND[st.type] || ""}</p>`;
+  if (st.type === "learn") return `${kind}<h2>${esc(st.title)}</h2><div class="body">${md(st.body)}</div>${st.code ? codeBlock(st.code) : ""}`;
+  if (st.type === "choice") return `${kind}<h2>${esc(st.question)}</h2>${st.code ? codeBlock(st.code) : ""}
+    <div class="options" role="radiogroup" aria-label="Answers">${st.options.map((o, i) => `<button class="opt" role="radio" aria-checked="false" data-i="${i}"><span class="key">${String.fromCharCode(65 + i)}</span><span>${inline(o)}</span></button>`).join("")}</div>
+    <div id="fb"></div>`;
+  if (st.type === "fill") {
+    const parts = st.code.split("___");
+    let html = "";
+    parts.forEach((p, i) => { html += hl(p); if (i < parts.length - 1) html += `<input class="blank" data-i="${i}" aria-label="Blank ${i + 1}" autocomplete="off" autocapitalize="off" spellcheck="false">`; });
+    return `${kind}<h2>${esc(st.prompt)}</h2><pre class="code"><code>${html}</code></pre><div id="fb"></div>`;
+  }
+  if (st.type === "order") return `${kind}<h2>${esc(st.prompt)}</h2><ol class="order" id="order"></ol><div id="fb"></div>`;
+  if (st.type === "practice") return `${kind}<h2>${esc(st.title)}</h2><div class="body">${md(st.body)}</div>
+    <div class="kv"><span class="kv-label">Starter file</span><code style="justify-self:start">${esc(st.file)}</code></div>
+    <div class="kv"><span class="kv-label">Run it</span><div class="copyable">${codeBlock(st.command)}<button class="btn" id="copycmd">Copy</button></div></div>
+    <div class="row"><button class="btn" id="showsol">Show solution</button></div>
+    <div id="sol"></div>
+    <p class="muted" style="font-size:15px">Learning on a phone or without Python? Skip it for now; it stays on your plan.</p>`;
+  return "";
+}
+function setActions(html) { document.getElementById("actions").innerHTML = html; }
+function mark(result) { const pr = prog(cur.id); pr.marks[`${pr.b}.${pr.s}`] = result; save(); }
+function advance() { const pr = prog(cur.id); pr.s++; save(); drawStep(); }
+function noteWeak(st) {
+  const label = st.question || st.prompt || st.title;
+  if (!S.weak.some(w => w.module === cur.id && w.label === label)) S.weak.push({ module: cur.id, label, explain: st.explain || "" });
+  save();
+}
+function clearWeak(st) {
+  const label = st.question || st.prompt || st.title;
+  S.weak = S.weak.filter(w => !(w.module === cur.id && w.label === label)); save();
+}
+function showFeedback(ok, st) {
+  document.getElementById("fb").innerHTML = `<div class="feedback ${ok ? "" : "bad"}"><strong>${ok ? "Correct" : "Not quite"}</strong>${inline(st.explain || "")}</div>`;
+}
+function wireStep(st) {
+  const backBtn = prog(cur.id).s > 0 ? `<button class="btn ghost spacer" id="prev">Back</button>` : `<span class="spacer"></span>`;
+  const afterCheck = (ok) => {
+    mark(ok ? "ok" : "miss");
+    ok ? clearWeak(st) : noteWeak(st);
+    showFeedback(ok, st);
+    setActions(`${backBtn}${ok ? "" : `<button class="btn" id="retry">Try again</button>`}<button class="btn primary" id="cont">Continue</button>`);
+    document.getElementById("cont").onclick = advance;
+    const r = document.getElementById("retry"); if (r) r.onclick = drawStep;
+    wirePrev(); document.getElementById("cont").focus();
+  };
+  if (st.type === "learn") {
+    setActions(`${backBtn}<button class="btn primary" id="cont">Next</button>`);
+    document.getElementById("cont").onclick = () => { mark("ok"); advance(); };
+  }
+  if (st.type === "choice") {
+    setActions(`${backBtn}<button class="btn primary" id="check" disabled>Check</button>`);
+    const opts = [...document.querySelectorAll(".opt")];
+    opts.forEach(o => o.onclick = () => {
+      if (cur.state.checked) return;
+      cur.state.pick = Number(o.dataset.i);
+      opts.forEach(x => x.setAttribute("aria-checked", x === o));
+      document.getElementById("check").disabled = false;
+    });
+    document.getElementById("check").onclick = () => {
+      cur.state.checked = true;
+      const ok = cur.state.pick === st.answer;
+      opts[st.answer].classList.add("right");
+      if (!ok) opts[cur.state.pick].classList.add("wrong");
+      afterCheck(ok);
+    };
+  }
+  if (st.type === "fill") {
+    setActions(`${backBtn}<button class="btn primary" id="check">Check</button>`);
+    const blanks = [...document.querySelectorAll(".blank")];
+    blanks.forEach((b, i) => {
+      const fit = () => { b.style.width = Math.max(6, b.value.length + 2) + "ch"; };
+      b.oninput = fit; fit();
+      b.onkeydown = e => { if (e.key === "Enter") (blanks[i + 1] || document.getElementById("check")).focus(); };
+    });
+    blanks[0] && blanks[0].focus();
+    document.getElementById("check").onclick = () => {
+      const norm = v => v.trim().replace(/\s+/g, " ");
+      let ok = true;
+      blanks.forEach((b, i) => {
+        const good = (st.answers[i] || []).some(a => norm(a) === norm(b.value));
+        b.classList.toggle("right", good); b.classList.toggle("wrong", !good);
+        if (!good) ok = false;
+        b.readOnly = true;
+      });
+      if (!ok) blanks.forEach((b, i) => { if (b.classList.contains("wrong")) b.title = "Answer: " + st.answers[i][0]; });
+      const extra = ok ? "" : " Answers: " + st.answers.map(a => "`" + a[0] + "`").join(", ") + ".";
+      afterCheck(ok);
+      if (!ok) document.querySelector("#fb .feedback").insertAdjacentHTML("beforeend", inline(extra));
+    };
+  }
+  if (st.type === "order") {
+    let items = st.items.map((t, i) => ({ t, i }));
+    do { items.sort(() => Math.random() - 0.5); } while (items.length > 1 && items.every((x, k) => x.i === k));
+    const draw = (checked) => {
+      const ol = document.getElementById("order");
+      ol.classList.toggle("checked", !!checked);
+      ol.innerHTML = items.map((x, k) => `<li class="${checked ? (x.i === k ? "right" : "wrong") : ""}"><span>${esc(x.t)}</span>
+        ${checked ? "" : `<span class="mv"><button data-k="${k}" data-d="-1" aria-label="Move up" ${k === 0 ? "disabled" : ""}>▲</button><button data-k="${k}" data-d="1" aria-label="Move down" ${k === items.length - 1 ? "disabled" : ""}>▼</button></span>`}</li>`).join("");
+      ol.querySelectorAll("button").forEach(b => b.onclick = () => {
+        const k = Number(b.dataset.k), d = Number(b.dataset.d);
+        [items[k], items[k + d]] = [items[k + d], items[k]];
+        draw(false);
+        const again = ol.querySelector(`button[data-k="${k + d}"][data-d="${d}"]`) || ol.querySelector(`button[data-k="${k + d}"]`);
+        again && again.focus();
+      });
+    };
+    draw(false);
+    setActions(`${backBtn}<button class="btn primary" id="check">Check</button>`);
+    document.getElementById("check").onclick = () => {
+      const ok = items.every((x, k) => x.i === k);
+      draw(true);
+      afterCheck(ok);
+      if (!ok) document.querySelector("#fb .feedback").insertAdjacentHTML("beforeend", "<br>Correct order: " + st.items.map((t, k) => `${k + 1}. ${esc(t)}`).join(" · "));
+    };
+  }
+  if (st.type === "practice") {
+    setActions(`${backBtn}<button class="btn" id="skip">Skip for now</button><button class="btn primary" id="done">I ran it and it passed</button>`);
+    document.getElementById("copycmd").onclick = e => copy(st.command, e.target);
+    document.getElementById("showsol").onclick = async e => {
+      const box = document.getElementById("sol");
+      if (box.innerHTML) { box.innerHTML = ""; e.target.textContent = "Show solution"; return; }
+      const text = await loadFile(st.solution);
+      box.innerHTML = text ? codeBlock(text) : `<p class="muted">Open <code>${esc(st.solution)}</code> in the repository to see the solution.</p>`;
+      e.target.textContent = "Hide solution";
+    };
+    document.getElementById("done").onclick = () => { mark("ok"); advance(); };
+    document.getElementById("skip").onclick = () => { advance(); };
+  }
+  wirePrev();
+}
+function wirePrev() {
+  const p = document.getElementById("prev");
+  if (p) p.onclick = () => { const pr = prog(cur.id); pr.s = Math.max(0, pr.s - 1); save(); drawStep(); };
+}
+function batchNotesHTML(batch) {
+  const n = batch.notes || {};
+  return `<div class="notes-card">
+    ${n.points ? `<ul>${n.points.map(p => `<li>${inline(p)}</li>`).join("")}</ul>` : ""}
+    ${n.code ? codeBlock(n.code) : ""}
+    ${n.remember ? `<p class="remember">${inline(n.remember)}</p>` : ""}
+  </div>`;
+}
+function drawBatchNotes() {
+  const { id, lesson: L } = cur;
+  const pr = prog(id);
+  const batch = L.batches[pr.b];
+  if (!pr.doneBatches.includes(pr.b)) {
+    pr.doneBatches.push(pr.b);
+    S.log.unshift({ date: isoDate(new Date()), module: id, batch: batch.title });
+  }
+  const marks = batch.steps.map((_, k) => pr.marks[`${pr.b}.${k}`]);
+  const passed = marks.filter(m => m === "ok").length;
+  const missed = marks.filter(m => m === "miss").length;
+  const skipped = batch.steps.length - passed - missed;
+  const lastBatch = pr.b === L.batches.length - 1;
+  save();
+  const summary = [`${passed} passed`, missed ? `${missed} to revise` : "", skipped ? `${skipped} skipped` : ""].filter(Boolean).join(", ");
+  $app().innerHTML = `
+    <div class="col stack">
+      <p class="crumb"><a href="#home">My plan</a> / ${esc(L.title)}</p>
+      <div class="resultbar" role="status">${summary}</div>
+      <section class="panel stack">
+        <div class="stack" style="gap:4px">
+          <p class="step-kind">Notes to revise</p>
+          <h2>${esc(batch.title)}</h2>
+        </div>
+        ${batchNotesHTML(batch)}
+        <p class="muted" style="font-size:15px">Saved to your Notes page.</p>
+      </section>
+      <div class="actions">
+        <a class="btn ghost spacer" href="#home">Back to my plan</a>
+        <button class="btn" id="redo">Repeat this batch</button>
+        <button class="btn primary" id="nextb">${lastBatch ? "Finish module" : "Next batch"}</button>
+      </div>
+    </div>`;
+  document.getElementById("redo").onclick = () => { for (let k = 0; k < batch.steps.length; k++) delete pr.marks[`${pr.b}.${k}`]; pr.s = 0; save(); drawStep(); };
+  document.getElementById("nextb").onclick = () => {
+    pr.b++; pr.s = 0;
+    if (lastBatch) { pr.complete = true; save(); go("module-" + id); }
+    else { save(); drawStep(); }
+  };
+}
+async function renderModuleDone(id) {
+  setNav("home");
+  const L = await loadLesson(id);
+  if (!L) return renderHome();
+  const job = ["job-switch", "career-start"].includes(S.profile.goal);
+  const nextMod = S.plan.find(p => !prog(p.id).complete && LESSONS[p.id] !== null);
+  $app().innerHTML = `
+    <div class="col stack">
+      <p class="crumb"><a href="#home">My plan</a> / ${esc(L.title)}</p>
+      <div class="resultbar" role="status">${esc(L.title)}: passed</div>
+      <h2>Module notes</h2>
+      ${L.batches.map(b => `<section class="panel stack"><h3>${esc(b.title)}</h3>${batchNotesHTML(b)}</section>`).join("")}
+      ${L.interview && L.interview.length ? `<h2>${job ? "Interview practice" : "Interview corner"}</h2>
+        <p class="muted">${job ? "Answer each out loud first, then open the model answer." : "Common interview questions on this module."}</p>
+        ${L.interview.map(x => `<details class="iv"><summary>${esc(x.q)}</summary><p>${inline(x.a)}</p></details>`).join("")}` : ""}
+      <div class="actions">
+        <button class="btn spacer" id="again">Review the module again</button>
+        ${nextMod ? `<a class="btn primary" href="#learn-${nextMod.id}">Next: ${esc(nextMod.title)}</a>` : `<a class="btn primary" href="#home">Back to my plan</a>`}
+      </div>
+    </div>`;
+  document.getElementById("again").onclick = () => { const pr = prog(id); pr.b = 0; pr.s = 0; save(); go("learn-" + id); };
+}
+
+/* ---------- Notes ---------- */
+async function renderNotes() {
+  setNav("notes");
+  await Promise.all(S.plan.map(p => loadLesson(p.id)));
+  const groups = S.plan.map(p => {
+    const L = LESSONS[p.id]; const pr = prog(p.id);
+    if (!L || !pr.doneBatches.length) return null;
+    const batches = [...pr.doneBatches].sort((a, b) => a - b).map(i => L.batches[i]).filter(Boolean);
+    return { L, batches };
+  }).filter(Boolean);
+  const weak = S.weak.map(w => {
+    const p = S.plan.find(x => x.id === w.module);
+    return `<li><strong>${inline(w.label)}</strong><br><span class="muted">${p ? esc(p.title) + ": " : ""}${inline(w.explain)}</span></li>`;
+  }).join("");
+  $app().innerHTML = `
+    <div class="col stack" style="gap:22px">
+      <div class="stack" style="gap:6px"><h1>Notes</h1><p class="muted">Everything you've finished, in short. Read before an interview or when something slips.</p></div>
+      ${groups.length ? `<input class="field" id="search" type="search" placeholder="Search your notes, e.g. context, headed, expect" aria-label="Search notes">` : ""}
+      ${weak ? `<section class="panel stack"><h3>Worth another look</h3><p class="muted" style="font-size:15px">Questions you missed. They disappear when you get them right.</p><ul class="stack" style="gap:10px;padding-left:20px;margin:0">${weak}</ul></section>` : ""}
+      <div id="notes-list" class="stack" style="gap:22px">
+      ${groups.length ? groups.map(g => `<section class="panel notes-mod" data-text="${esc((g.L.title + " " + JSON.stringify(g.batches)).toLowerCase())}">
+          <h2>${esc(g.L.title)}</h2>
+          ${g.batches.map(b => `<div class="notes-batch" data-text="${esc((b.title + " " + JSON.stringify(b.notes)).toLowerCase())}"><h3>${esc(b.title)}</h3>${batchNotesHTML(b)}</div>`).join("")}
+        </section>`).join("") : `<section class="panel empty stack"><h3>No notes yet</h3><p class="muted">Finish your first batch of tasks and its notes will appear here.</p><a class="btn primary" href="#home" style="justify-self:center">Go to my plan</a></section>`}
+      </div>
+      <p class="muted" id="noresult" hidden>No notes match that search.</p>
+    </div>`;
+  const s = document.getElementById("search");
+  if (s) s.oninput = () => {
+    const q = s.value.trim().toLowerCase(); let any = false;
+    document.querySelectorAll(".notes-mod").forEach(mod => {
+      let modHit = false;
+      mod.querySelectorAll(".notes-batch").forEach(b => { const hit = !q || b.dataset.text.includes(q); b.hidden = !hit; modHit = modHit || hit; });
+      mod.hidden = !modHit; any = any || modHit;
+    });
+    document.getElementById("noresult").hidden = any;
+  };
+}
+
+/* ---------- AI tutor & backup ---------- */
+function repoURL() {
+  const m = location.hostname.match(/^([^.]+)\.github\.io$/);
+  if (m) { const repo = location.pathname.split("/").filter(Boolean)[0]; return `https://github.com/${m[1]}/${repo || m[1] + ".github.io"}`; }
+  return "";
+}
+function progressSummary() {
+  return S.plan.map(p => {
+    const L = LESSONS[p.id], pr = prog(p.id);
+    if (pr.complete) return `- ${p.title}: done`;
+    if (L && (pr.b || pr.s)) return `- ${p.title}: in progress (batch ${pr.b + 1} of ${L.batches.length})`;
+    return `- ${p.title}: not started`;
+  }).join("\n");
+}
+function agentPrompt() {
+  const url = repoURL() || "<link to this course repository>";
+  const weak = S.weak.length ? "\nTopics I got wrong:\n" + S.weak.map(w => "- " + w.label).join("\n") : "";
+  return `Be my Playwright tutor using this course repository: ${url}
+Follow the repository's AGENTS.md. Skip the onboarding questions except `contribute`; here is my profile (save it as learner/profile.json, then run python start.py --plan):
+
+${JSON.stringify(S.profile, null, 2)}
+
+My progress so far:
+${progressSummary()}${weak}
+
+Teach me one small task at a time from the lesson.json files, and give me revision notes after each batch.`;
+}
+function renderAgent() {
+  setNav("agent");
+  const exportText = JSON.stringify(S, null, 2);
+  $app().innerHTML = `
+    <div class="col stack" style="gap:22px">
+      <div class="stack" style="gap:6px"><h1>AI tutor &amp; backup</h1><p class="muted">The course works fully here. An AI tutor is optional: it can explain in your language, review your code and run your tests.</p></div>
+      <section class="panel stack">
+        <h2>Continue with an AI tutor</h2>
+        <p>Open the course in an AI coding agent such as Claude Code, then paste this message. It carries your profile and progress, so the tutor picks up where you are.</p>
+        <div class="copyable"><textarea class="field" id="prompt" readonly rows="10" style="font:13px/1.5 var(--font-code)">${esc(agentPrompt())}</textarea></div>
+        <div class="row"><button class="btn primary" id="copyprompt">Copy message</button>${repoURL() ? `<a class="btn" href="${esc(repoURL())}" target="_blank" rel="noopener">Open the repository</a>` : ""}</div>
+      </section>
+      <section class="panel stack">
+        <h2>Back up or move your progress</h2>
+        <p class="muted">Progress is saved in this browser only. Copy the backup to move it to another browser or device, then paste it there.</p>
+        <div class="row"><button class="btn" id="copyback">Copy backup</button><button class="btn" id="dl">Download backup file</button></div>
+        <label class="kv"><span class="kv-label">Restore from a backup</span><textarea class="field" id="restore" placeholder="Paste a backup here" style="font:13px/1.5 var(--font-code)"></textarea></label>
+        <div class="row"><button class="btn" id="dorestore">Restore progress</button><label class="btn" for="file">Restore from file</label><input type="file" id="file" accept=".json,application/json" hidden></div>
+      </section>
+      <section class="panel stack">
+        <h2>Change my answers</h2>
+        <p class="muted">Start over to pick a different goal or topics. This clears your plan, progress and notes in this browser.</p>
+        <div id="resetzone"><button class="btn" id="reset">Start over</button></div>
+      </section>
+    </div>`;
+  document.getElementById("copyprompt").onclick = e => copy(agentPrompt(), e.target);
+  document.getElementById("copyback").onclick = e => copy(exportText, e.target);
+  document.getElementById("dl").onclick = () => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([exportText], { type: "application/json" }));
+    a.download = "playwright-course-backup.json"; document.body.appendChild(a); a.click(); a.remove();
+    toast("If nothing downloaded, use Copy backup");
+  };
+  const restore = text => {
+    try {
+      const data = JSON.parse(text);
+      if (!data.profile || !Array.isArray(data.plan)) throw new Error("shape");
+      S = Object.assign(blankState(), data); save(); toast("Progress restored"); go("home");
+    } catch { toast("That isn't a course backup"); }
+  };
+  document.getElementById("dorestore").onclick = () => restore(document.getElementById("restore").value);
+  document.getElementById("file").onchange = e => {
+    const f = e.target.files[0]; if (!f) return;
+    const r = new FileReader(); r.onload = () => restore(r.result); r.readAsText(f);
+  };
+  document.getElementById("reset").onclick = () => {
+    document.getElementById("resetzone").innerHTML = `<div class="confirm"><strong>Clear everything in this browser?</strong><span>Copy a backup first if you might want it back.</span><div class="row"><button class="btn" id="yes">Clear and start over</button><button class="btn ghost" id="no">Keep my progress</button></div></div>`;
+    document.getElementById("no").onclick = renderAgent;
+    document.getElementById("yes").onclick = () => { S = blankState(); save(); ob = { i: 0, a: {} }; go("welcome"); };
+  };
+}
+
+/* ---------- Boot ---------- */
+(async function boot() {
+  load();
+  try { await loadCatalog(); }
+  catch {
+    $app().innerHTML = `<div class="col panel stack"><h2>The course content couldn't load</h2>
+      <p>If you opened this file straight from your computer, run <code>python tools/build_bundle.py</code> once, then open <code>index.html</code> again. Or use the course's website link.</p></div>`;
+    return;
+  }
+  if (S.profile && CATALOG) S.plan = S.plan.length ? S.plan : buildPlan(S.profile);
+  window.addEventListener("hashchange", route);
+  route();
+})();
+</script>
+</body>
+</html>
