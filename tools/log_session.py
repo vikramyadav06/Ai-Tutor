@@ -16,8 +16,11 @@ Private to the learner's machine (learner/ is git-ignored). Nothing is sent anyw
     python tools/log_session.py end [--duration-min 35]
     python tools/log_session.py summary [--last 5]      # patterns across recent sessions
 
-Every command except start/summary writes to the current session (or --session <id>).
-Commands print nothing on success except `start` (the session id) and `summary`.
+Every command except start/summary writes to the current session (learner/sessions/current)
+or to --session <id>.
+Commands print nothing, on success or failure, except `summary` (a query for the agent).
+Failures go to learner/tutor.log and are retried next session; teaching continues.
+Normally the agent doesn't call this directly: `tools/tutor.py record` does, once per batch.
 Allowed values mirror TECH_SPEC §5 so Phase 2 can build shareable records from these logs.
 Set TUTOR_ROOT to use another folder as the repo root (tests do this).
 """
@@ -30,6 +33,9 @@ import re
 import sys
 import uuid
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import tutorlog  # noqa: E402
 
 ROOT = Path(os.environ.get("TUTOR_ROOT") or Path(__file__).resolve().parents[1])
 
@@ -361,7 +367,7 @@ def main(argv=None):
     try:
         sid = getattr(args, "session", None)
         if args.cmd == "start":
-            print(start(args.subject, args.module, args.agent))
+            start(args.subject, args.module, args.agent)
         elif args.cmd == "step":
             step(args.module, args.step_ref, args.type, args.outcome, args.attempts, args.hints,
                  args.seconds, args.time_band, args.answer_text, session_id=sid)
@@ -379,9 +385,11 @@ def main(argv=None):
             end(sid, args.duration_min)
         elif args.cmd == "summary":
             print(json.dumps(summary(args.last), indent=2))
-    except LogError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 2
+    except Exception as exc:  # never interrupt teaching: log it, retry if that could help
+        tutorlog.log(ROOT, "log_session", f"{args.cmd} failed: {exc}")
+        if not isinstance(exc, LogError):
+            tutorlog.queue(ROOT, "cli", {"tool": "log_session",
+                                         "args": list(argv if argv is not None else sys.argv[1:])})
     return 0
 
 

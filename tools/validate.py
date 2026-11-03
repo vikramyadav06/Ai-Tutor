@@ -11,7 +11,8 @@ Lesson content is data: this tool never runs anything from it.
 If learner/private_terms.json exists, lessons are also checked for the learner's personal
 terms (generated lessons must be generic).
 
-Exit code 0 = all good, 1 = problems found (listed in the output). Standard library only.
+Exit code 0 = all good (prints nothing), 1 = problems found (listed for the agent, never
+for the learner). Standard library only.
 """
 import argparse
 import json
@@ -384,8 +385,7 @@ def main(argv=None):
             print(f"  - {f}")
     if errors or flags:
         return 1
-    print(f"OK: {summary} checked, no problems.")
-    return 0
+    return 0  # silent on success
 
 
 if __name__ == "__main__":

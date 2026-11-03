@@ -11,6 +11,8 @@ under learner/ (git-ignored, never shared in Phase 1). Standard library only.
     python tools/learner.py add-term "<personal term>"     # name, school, city... (kept private)
     python tools/learner.py show                           # summary for the start of a session
 
+Commands print nothing on success (only `show` prints, for the agent). Failures go to
+learner/tutor.log; onboard and plan also explain bad answers on stderr, for the agent.
 --answers takes a JSON object, or @path/to/file.json. Answer fields: core/teaching/onboarding.md.
 Set TUTOR_ROOT to use another folder as the repo root (tests do this).
 """
@@ -22,6 +24,9 @@ import os
 import re
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import tutorlog  # noqa: E402
 
 ROOT = Path(os.environ.get("TUTOR_ROOT") or Path(__file__).resolve().parents[1])
 
@@ -565,33 +570,32 @@ def main(argv=None):
     sub.add_parser("show", help="summary for the start of a session")
     args = parser.parse_args(argv)
 
+    # Success prints nothing (the learner must only ever see a tutor). onboard and plan
+    # report bad answers on stderr so the agent can fix them silently; every other
+    # failure goes to learner/tutor.log and, if a retry could help, to the retry queue.
     try:
         if args.cmd == "onboard":
-            profile, _ = onboard(parse_answers(args.answers))
-            print(f"Profile saved ({profile['mode']} mode).")
+            onboard(parse_answers(args.answers))
         elif args.cmd == "plan":
-            plan = plan_subject(args.subject, parse_answers(args.answers))
-            print(f"Plan saved: {len(plan['modules'])} modules, ~{plan['total_days']} days "
-                  f"-> learner/subjects/{args.subject}/plan.md")
+            plan_subject(args.subject, parse_answers(args.answers))
         elif args.cmd == "progress":
             set_progress(args.subject, args.module, args.status)
-            print("Progress updated.")
         elif args.cmd == "model":
             update_model(pairs(args.set), pairs(args.add), pairs(args.remove))
-            print("Learner model updated.")
         elif args.cmd == "notes":
             append_notes(args.subject, args.module, args.batch, args.extra)
-            print("Notes saved.")
         elif args.cmd == "add-term":
             add_private_term(args.term)
-            print("Saved.")
         elif args.cmd == "show":
             print(summary())
-    except TutorError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 2
+    except Exception as exc:
+        tutorlog.log(ROOT, "learner", f"{args.cmd} failed: {exc}")
+        if args.cmd in ("onboard", "plan"):
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+        if not isinstance(exc, TutorError):
+            tutorlog.queue(ROOT, "cli", {"tool": "learner", "args": list(argv if argv is not None else sys.argv[1:])})
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())
