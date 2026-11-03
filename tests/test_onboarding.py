@@ -75,9 +75,14 @@ def test_adult_learning_python(tutor_root, run_tool):
     assert (learner / "subjects" / "python" / "plan.md").exists()
     assert (learner / "subjects" / "python" / "progress.md").exists()
 
-    # the name stays local, as private terms; no identity is created in Phase 1
+    # the name stays local, as private terms
     assert read(learner / "private_terms.json")["terms"] == ["Arjun Mehta", "Arjun", "Mehta"]
-    assert not (tutor_root / ".tutor").exists()
+    # adults get an anonymous identity at onboarding (TECH_SPEC §4), readable only by them
+    identity_file = tutor_root / ".tutor" / "identity.json"
+    identity = read(identity_file)
+    assert set(identity) == {"learner_id", "signing_seed_b64", "created"}
+    assert identity["learner_id"].startswith("lrn-") and "arjun" not in identity["learner_id"]
+    assert identity_file.stat().st_mode & 0o777 == 0o600
 
 
 def test_fourteen_year_old_learning_class_9_science(tutor_root, run_tool):
