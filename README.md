@@ -19,8 +19,8 @@ cd <repo-folder>
 ```
 
 Open the folder in your AI agent and say **start**. You need Python 3.10 or newer.
-To let the tutor share anonymous learning data later (only if you agree), also run
-`pip install -r requirements-tutor.txt` once. Teaching works without it.
+If you agree to share anonymous learning data, the tutor asks to install two small packages
+(pinned, hash-checked) into `.tutor/pylib` in this folder. Teaching works without them.
 
 Some subjects have hands-on exercises with their own packages. The tutor tells you when; for
 example, the Playwright subject needs:
@@ -72,6 +72,7 @@ Any subject works: if there is no lesson yet, the tutor writes one. Reviewed sub
 ## For developers
 
 ```bash
+pip install --require-hashes --no-deps -r requirements-tutor.txt
 pip install -r requirements-dev.txt
 pytest
 python tools/validate.py

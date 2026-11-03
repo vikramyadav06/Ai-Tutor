@@ -21,7 +21,9 @@ repository: `vikramwebgarh/Ai-Tutor` (Repo A) and `vikramwebgarh/Ai-Tutor-Platfo
 - Never call the network from tutor tools except `git` and `gh`, and one exception (owner
   decision, 2026-11-03): `tools/learner.py install-sharing-packages` installs
   `requirements-tutor.txt` into `.tutor/pylib` with pip or uv, only after the learner said yes
-  to sharing and to installing them, in the same consent moment.
+  to sharing and to installing them, in the same consent moment. Every package in that file,
+  dependencies included, is pinned exactly with sha256 hashes, and the install always runs
+  with `--require-hashes --no-deps --target .tutor/pylib`.
 
 ## 2. Repo A layout (target after Phase 2)
 

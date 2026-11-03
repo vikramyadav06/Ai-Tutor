@@ -1,3 +1,4 @@
-# For running the tutor's tests: pytest tests
--r requirements-tutor.txt
+# For running the tutor's tests. Install the hashed tutor packages first:
+#   python -m pip install --require-hashes --no-deps -r requirements-tutor.txt
+#   python -m pip install -r requirements-dev.txt
 pytest==8.3.3

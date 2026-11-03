@@ -451,3 +451,64 @@ def test_sharing_check_and_install_cli(tutor_root, run_tool, tmp_path):
     finally:
         del _os.environ["TUTOR_PIP_COMMAND"]
     assert result.returncode == 2 and "could not install" in result.stderr and result.stdout == ""
+
+
+# ---------- hash-pinned install ----------
+
+REQUIRED_DISTS = {"pynacl", "jsonschema", "cffi", "pycparser", "attrs", "referencing", "rpds-py",
+                  "jsonschema-specifications", "typing-extensions"}
+
+
+def test_install_command_always_requires_hashes(tutor_root, monkeypatch):
+    target, req = tutor_root / ".tutor" / "pylib", tutor_root / "requirements-tutor.txt"
+    monkeypatch.delenv("TUTOR_PIP_COMMAND", raising=False)
+    # whichever installers exist, and also when both exist
+    monkeypatch.setattr("importlib.util.find_spec", lambda name, *a: object() if name == "pip" else None)
+    monkeypatch.setattr("shutil.which", lambda name, *a: "/usr/bin/uv" if name == "uv" else None)
+    commands = learner.installer_commands(target, req)
+    assert len(commands) == 2 and commands[0][1:4] == ["-m", "pip", "install"] and commands[1][:3] == ["uv", "pip", "install"]
+    monkeypatch.setenv("TUTOR_PIP_COMMAND", json.dumps(["fake-installer"]))
+    commands += learner.installer_commands(target, req)
+    for command in commands:
+        assert "--require-hashes" in command, command
+        assert "--no-deps" in command, command
+        i = command.index("--target")
+        assert command[i + 1] == str(target)
+        assert command[command.index("-r") + 1] == str(req)
+
+
+def test_fake_install_receives_the_strict_flags(tutor_root, monkeypatch, tmp_path):
+    fake = tmp_path / "fake_pip.py"
+    fake.write_text("import sys, pathlib\n"
+                    "target = pathlib.Path(sys.argv[sys.argv.index('--target') + 1])\n"
+                    "(target / 'argv.txt').write_text(' '.join(sys.argv[1:]))\n")
+    monkeypatch.setenv("TUTOR_PIP_COMMAND", json.dumps([sys.executable, str(fake)]))
+    target = learner.install_packages(tutor_root)
+    argv = (target / "argv.txt").read_text().split()
+    assert "--require-hashes" in argv and "--no-deps" in argv
+    sys.path.remove(str(target))
+
+
+def test_requirements_are_exact_and_hashed():
+    text = (REPO / "requirements-tutor.txt").read_text()
+    requirements = [r for r in re.split(r"(?<!\\)\n(?=\S)", "\n".join(
+        line for line in text.splitlines() if not line.lstrip().startswith("#"))) if r.strip()]
+    names = set()
+    for req in requirements:
+        head = req.split("\\")[0].strip()
+        m = re.match(r"^([A-Za-z0-9_.-]+)==([0-9][A-Za-z0-9.]*)(\s*;.*)?$", head)
+        assert m, f"not an exact pin: {head!r}"
+        names.add(m.group(1).lower())
+        hashes = re.findall(r"--hash=sha256:([0-9a-f]{64})\b", req)
+        assert hashes, f"no sha256 hash for {head!r}"
+    assert REQUIRED_DISTS <= names, REQUIRED_DISTS - names
+    assert "pynacl==1.5.0" in text and "jsonschema==4.23.0" in text
+    # nothing that would let pip reach outside the hashed list
+    body = "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("#"))
+    for bad in ("--index-url", "--extra-index-url", "--find-links", "-e ", "git+", "http://", "https://"):
+        assert bad not in body, bad
+
+
+def test_dev_requirements_do_not_mix_unhashed_tutor_packages():
+    text = (REPO / "requirements-dev.txt").read_text()
+    assert "-r requirements-tutor.txt" not in [l.strip() for l in text.splitlines() if not l.startswith("#")]

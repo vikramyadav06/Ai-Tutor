@@ -369,26 +369,35 @@ def missing_packages():
     return [pkg for mod, pkg in SHARING_PACKAGES.items() if importlib.util.find_spec(mod) is None]
 
 
+# Exact versions with hashes only: no dependency resolution, nothing unpinned or unhashed.
+STRICT_INSTALL_FLAGS = ["--require-hashes", "--no-deps"]
+
+
+def installer_commands(target, requirements):
+    """The commands to try, in order. Every one checks hashes and installs no extra deps."""
+    import importlib.util
+    import shutil
+    args = [*STRICT_INSTALL_FLAGS, "--target", str(target), "-r", str(requirements)]
+    if os.environ.get("TUTOR_PIP_COMMAND"):  # tests only: a stand-in installer
+        return [json.loads(os.environ["TUTOR_PIP_COMMAND"]) + args]
+    runners = []
+    if importlib.util.find_spec("pip"):
+        runners.append([sys.executable, "-m", "pip", "install", "--quiet", "--disable-pip-version-check",
+                        "--no-input", *args])
+    if shutil.which("uv"):
+        runners.append(["uv", "pip", "install", "--quiet", "--python", sys.executable, *args])
+    return runners
+
+
 def install_packages(root=None):
     """Install requirements-tutor.txt into .tutor/pylib. Only after the learner said yes to
     installing them (TECH_SPEC §1 exception, owner decision 2026-11-03). Never touches the
     system Python. Raises TutorError if no installer works."""
-    import importlib.util
-    import shutil
     import subprocess
     root = Path(root or ROOT)
     target = tutor_dir(root) / "pylib"
     target.mkdir(parents=True, exist_ok=True)
-    args = ["--target", str(target), "-r", str(root / "requirements-tutor.txt")]
-    if os.environ.get("TUTOR_PIP_COMMAND"):  # tests only: a stand-in installer
-        runners = [json.loads(os.environ["TUTOR_PIP_COMMAND"]) + args]
-    else:
-        runners = []
-        if importlib.util.find_spec("pip"):
-            runners.append([sys.executable, "-m", "pip", "install", "--quiet", "--disable-pip-version-check",
-                            "--no-input", *args])
-        if shutil.which("uv"):
-            runners.append(["uv", "pip", "install", "--quiet", "--python", sys.executable, *args])
+    runners = installer_commands(target, root / "requirements-tutor.txt")
     errors = []
     for command in runners:
         try:
