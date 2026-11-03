@@ -68,6 +68,59 @@ def active_key(config):
     return key["key_id"], raw
 
 
+# ---------- trust in collector keys (TECH_SPEC §17) ----------
+# A change to project.json's collector keys only counts once it has been seen in two
+# consecutive signed releases. Until then nothing is encrypted to, or published for, the new key,
+# so a one-off key swap can't make a learner send data to someone else.
+
+KEYS_TRUST = "collector_keys.json"
+RELEASES_NEEDED = 2
+
+
+def keys_fingerprint(collector):
+    keys = [{k: key.get(k) for k in ("key_id", "public_key_b64", "status")} for key in collector.get("keys", [])]
+    return hashlib.sha256(canonical(keys)).hexdigest()
+
+
+def _trust_path(root):
+    return learner.tutor_dir(root) / KEYS_TRUST
+
+
+def ensure_key_baseline(root=None):
+    """The keys in the learner's copy when trust is first needed are the starting point."""
+    root = Path(root or ROOT)
+    state = learner.read_json(_trust_path(root))
+    if state is None:
+        state = {"trusted": keys_fingerprint(load_config(root)), "candidate": None, "seen_in": []}
+        learner.write_private_json(_trust_path(root), state)
+    return state
+
+
+def observe_release_keys(root, tag, collector):
+    """Called for every signed release, oldest first, with the keys that release carries."""
+    state = ensure_key_baseline(root)
+    fp = keys_fingerprint(collector)
+    if fp == state["trusted"]:
+        state.update(candidate=None, seen_in=[])
+    elif fp == state.get("candidate"):
+        if tag not in state["seen_in"]:
+            state["seen_in"].append(tag)
+        if len(state["seen_in"]) >= RELEASES_NEEDED:
+            tutorlog.log(root, "keys", f"new collector key accepted after releases {', '.join(state['seen_in'])}")
+            state.update(trusted=fp, candidate=None, seen_in=[])
+    else:
+        state.update(candidate=fp, seen_in=[tag])
+        tutorlog.log(root, "keys", f"collector keys changed in release {tag}: nothing is shared until the "
+                                   f"same keys arrive in {RELEASES_NEEDED} consecutive signed releases")
+    learner.write_private_json(_trust_path(root), state)
+    return state
+
+
+def keys_trusted(root=None):
+    root = Path(root or ROOT)
+    return keys_fingerprint(load_config(root)) == ensure_key_baseline(root)["trusted"]
+
+
 # ---------- schema helpers ----------
 
 def load_schema(name, root=None):
@@ -386,6 +439,9 @@ def collect_pending(root=None, config=None):
     config = config or load_config(root)
     sharing = bool(profile.get("sharing"))
     write = bool(config.get("enabled")) and sharing
+    if write and not keys_trusted(root):
+        tutorlog.log(root, "keys", "held: collector keys changed and aren't trusted yet; nothing collected")
+        return []
     state = load_state(root)
     written = []
     adult = profile.get("mode") == "adult"

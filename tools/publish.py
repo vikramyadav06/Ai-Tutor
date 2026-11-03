@@ -173,6 +173,9 @@ def publish(root=None, config=None, gh=None, day=None):
     files = outbox_files(root)
     if not files:
         return "nothing"
+    if not collect.keys_trusted(root):
+        tutorlog.log(root, "keys", "held: collector keys changed and aren't trusted yet; nothing published")
+        return "held-key-change"
     if not (root / ".git").exists():
         raise PublishError("not a git repository")
     if not ensure_fork(root, upstream_repo(root), gh):
