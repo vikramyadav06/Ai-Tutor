@@ -242,7 +242,7 @@ def test_new_lessons_are_shared_unsigned_and_generic(tutor_root, keypair, config
     # the tutor writes a new lesson that (wrongly) mentions a private term
     new = tutor_root / "core" / "subjects" / "python" / "first-steps"
     new.mkdir(parents=True)
-    lesson = json.loads((tutor_root / "core" / "subjects" / "class-9-science" / "matter" / "lesson.json").read_text())
+    lesson = json.loads((tutor_root / "core" / "subjects" / "class-9-science-exploration" / "chapter-01" / "lesson.json").read_text())
     lesson.update(id="first-steps", subject="python", planned_batches=None)
     lesson.pop("planned_batches")
     lesson["intro"] = "Written while teaching at Acme Logistics."

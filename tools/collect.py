@@ -396,10 +396,10 @@ def consent_sample(mode):
     events = [json.loads(line) for line in SAMPLE_SESSION.read_text(encoding="utf-8").splitlines() if line.strip()]
     sample_profile = {"mode": mode, "explain_language": "en", "level": "college" if mode == "adult" else "secondary",
                       "age_band": "18-24" if mode == "adult" else "13-17"}
-    sample_model = {"goals": ["Pass the end-of-term physics exam"], "journey_stage": "beginner",
-                    "preferred_styles": ["examples", "visual"], "pace": "steady",
-                    "strengths": ["motion"], "weak_areas": ["newtons-laws"],
-                    "what_works": ["a real-life example before the formula"]}
+    sample_model = {"goals": ["Write small programs to automate everyday tasks"], "journey_stage": "beginner",
+                    "preferred_styles": ["examples", "hands-on"], "pace": "steady",
+                    "strengths": ["variables"], "weak_areas": ["return-values"],
+                    "what_works": ["a real-life example before the code"]}
     identity = {"learner_id": "lrn-abcd2345"}
     name, record = build_session_record(events, sample_profile, sample_model, identity=identity)
     root = Path(__file__).resolve().parents[1]
