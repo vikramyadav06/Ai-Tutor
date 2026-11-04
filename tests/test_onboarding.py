@@ -1,8 +1,14 @@
 """TECH_SPEC §14 Phase 1: onboarding for two invented learners (an adult learning Python,
 a 14-year-old learning Class 9 science) produces correct profiles and plans."""
 import json
+import os
+import subprocess
+import sys
+from pathlib import Path
 
 import pytest
+
+REPO = Path(__file__).resolve().parents[1]
 
 ADULT = {
     "name": "Arjun Mehta",
@@ -268,3 +274,54 @@ def test_unknown_exam_unit_is_rejected(tutor_root, learner_tool):
         learner_tool.plan_subject(SUBJECT, {"exam_units": ["chapter-01", "chapter-99"]}, root=tutor_root)
     with pytest.raises(learner_tool.TutorError, match="exam_date must be YYYY-MM-DD"):
         learner_tool.plan_subject(SUBJECT, {"exam_date": "March"}, root=tutor_root)
+
+
+# ---------- the language a learner asked for is remembered ----------
+
+def test_onboarding_with_a_language_mix(tutor_root, learner_tool):
+    profile, _ = learner_tool.onboard({**ADULT, "explain_language": ["hi", "en"],
+                                       "language_note": "Hindi explanations, English technical terms"},
+                                      root=tutor_root)
+    assert profile["explain_language"] == "hi" and profile["explain_languages"] == ["hi", "en"]
+    text = learner_tool.summary(root=tutor_root)
+    assert "Teach in: Hindi (hi) + English (en), Hindi explanations, English technical terms." in text
+    assert "use it from the first message of every session" in text
+
+
+def test_a_language_change_mid_course_survives_the_next_session(tutor_root, run_tool, learner_tool):
+    """The bug: 'teach in Hindi and English' was followed in the conversation but never saved,
+    so the next session went back to English."""
+    run_tool("learner", "onboard", "--answers", json.dumps(ADULT))  # onboarded in English
+    record = {"subject": "python", "module": "first-steps", "language": {"languages": ["hi", "en"]},
+              "steps": [{"step_ref": "b1-s1", "type": "learn", "outcome": "viewed"}]}
+    result = run_tool("tutor", "record", "--json", json.dumps(record))
+    assert result.stdout == "" and result.stderr == ""
+    profile = read(tutor_root / "learner" / "profile.json")
+    assert profile["explain_languages"] == ["hi", "en"] and profile["explain_language"] == "hi"
+    # the next session's private context says so
+    start = subprocess.run([sys.executable, str(REPO / "tools" / "tutor.py"), "hook", "session-start"],
+                           input='{"source": "startup"}', capture_output=True, text=True,
+                           env={**os.environ, "TUTOR_ROOT": str(tutor_root)}, cwd=tutor_root)
+    context = json.loads(start.stdout)["hookSpecificOutput"]["additionalContext"]
+    assert "Teach in: Hindi (hi) + English (en) mixed." in context
+    # and back to one language, from the command line too
+    run_tool("learner", "language", "en")
+    assert "Teach in: English (en)." in learner_tool.summary(root=tutor_root)
+
+
+def test_bad_languages_are_rejected(tutor_root, learner_tool):
+    learner_tool.onboard(ADULT, root=tutor_root)
+    for bad in (["Hindi"], ["hi", "en", "ta", "te"], []):
+        with pytest.raises(learner_tool.TutorError):
+            learner_tool.set_language(bad, root=tutor_root)
+    assert read(tutor_root / "learner" / "profile.json")["explain_language"] == "en"
+
+
+def test_old_profiles_without_a_language_list_still_read(tutor_root, learner_tool):
+    learner_tool.onboard(ADULT, root=tutor_root)
+    path = tutor_root / "learner" / "profile.json"
+    profile = read(path)
+    for key in ("explain_languages", "language_note"):
+        profile.pop(key)
+    path.write_text(json.dumps(profile))
+    assert "Teach in: English (en)." in learner_tool.summary(root=tutor_root)

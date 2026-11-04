@@ -34,7 +34,7 @@ Ask the age band **first** (TECH_SPEC §9): it decides the learner's mode.
 | How old are you? | `age_band` | `under-13`, `13-17`, `18-24`, `25-34`, `35-44`, `45-54`, `55+` |
 | What would you like to learn? | the subject (see "Pick the subject" below) | free text |
 | Why do you want to learn it? What would success look like? | `goals` | 1-3 short goals, ≤200 characters each, no personal details |
-| Which language should I explain in? | `explain_language` | BCP-47 tag: `en`, `hi`, `ta`, `es`, `fr-CA` ... |
+| Which language should I explain in? One, or a mix? | `explain_language`, `language_note` | One BCP-47 tag (`en`, `hi`, `ta`, `es`, `fr-CA` ...), or a list for a mix, primary first: `["hi", "en"]` for "Hindi and English". `language_note` (optional, ≤200 characters) says how to mix: "Hindi explanations, English technical terms" |
 
 Ask age as a band only. Never ask for a birth date. Under 18 = **student mode**, 18+ =
 **adult mode**. Teaching is identical; only what may be shared differs.

@@ -47,6 +47,8 @@ KNOWN_KEYS = {"subject", "module", "agent", "session_id", "steps", "moves", "sig
               "feedback", "end",
               # the three allowed interruptions, recorded once each (TECH_SPEC §15)
               "sharing", "code_shown", "gh_login_asked", "sync",
+              # the learner asked to be taught in another language, or a mix
+              "language",
               # the learner asked to delete their shared data (adults)
               "delete_request"}
 EXPECTED = (learner.TutorError, log_session.LogError, KeyError, TypeError, ValueError)
@@ -91,6 +93,10 @@ def record(payload, root=None):
         attempt("private_terms", term, lambda t=term: learner.add_private_term(t, root))
     if "sharing" in payload:
         attempt("sharing", payload["sharing"], lambda: learner.set_sharing(bool(payload["sharing"]), root), many=False)
+    if payload.get("language"):
+        lang = payload["language"]
+        langs, note = (lang.get("languages"), lang.get("note")) if isinstance(lang, dict) else (lang, None)
+        attempt("language", lang, lambda: learner.set_language(langs, note, root), many=False)
     if "sync" in payload:
         attempt("sync", payload["sync"], lambda: learner.set_profile_flag("sync", bool(payload["sync"]), root),
                 many=False)

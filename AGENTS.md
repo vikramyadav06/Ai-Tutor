@@ -97,7 +97,10 @@ Step types and the `record` payload: `core/teaching/steps-and-notes.md`.
 ## 4. Adapting to the learner
 
 Adapt **how** you teach (language, level, examples, pace, style), never the shared lesson
-files. Use the private context: re-explain differently where they struggle, skip what they
+files. **Teach in the language, or mix of languages, in the private context's "Teach in" line
+from your very first message.** If the learner asks for another language or a mix, switch at
+once and save it with `"language"` in the next `record` call, so every later session and device
+starts that way. Use the private context: re-explain differently where they struggle, skip what they
 show they know, use the teaching moves that work for them. Put what you learned about them
 (weak areas, strengths, what works, pace) into the `model` part of the batch's `record` call.
 Details: `core/teaching/adaptation.md` and `core/teaching/learner-model.md`.

@@ -80,6 +80,7 @@ python tools/tutor.py record --json '{"subject": "class-9-science", "module": "m
 | `batch_done`, `notes_extra` | saves the batch's revision notes for later (plus your personal line) |
 | `module_done` | `true` when the module's last batch is done |
 | `model` | `set` / `add` / `remove` on the learner model (`learner-model.md`) |
+| `language` | the learner asked for another language or a mix: `{"languages": ["hi", "en"], "note": "..."}`, primary first |
 | `progress_entry` | at the end of a session: a short markdown entry for their progress history |
 | `feedback` | `{"rating": 1-5, "comment": "..."}` if they gave any |
 | `end` | `true` in the last call of the session (agents without hooks; harmless with hooks) |

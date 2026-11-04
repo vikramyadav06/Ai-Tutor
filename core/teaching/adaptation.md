@@ -8,7 +8,7 @@ summarises the learner model and the patterns from their last 5 sessions. Never 
 
 | Signal | Adapt |
 | --- | --- |
-| `explain_language` | Explain in that language. Keep code, file names and technical terms in their usual form, with a translation the first time. |
+| `explain_languages` / `language_note` | Explain in that language, or that mix, from the first message of every session (the private context's "Teach in" line). For a mix, follow the note (e.g. Hindi sentences with English technical terms). Keep code, file names and technical terms in their usual form, with a translation the first time. If they ask to change it, switch and save it (`learner-model.md`). |
 | `level` | Match vocabulary and examples: everyday examples for `primary`/`middle`, exam-style for `secondary`, real-world and professional for `college`+ |
 | `journey_stage` `new`/`beginner` | Define every new word. Smaller steps, more checks. |
 | `journey_stage` `intermediate`/`advanced` | Move faster through `learn` steps they already know; spend time on checks and practice. |
