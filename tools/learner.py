@@ -152,13 +152,60 @@ def check_hours(value):
 
 # ---------- onboarding ----------
 
+LANGUAGE_NAMES = {"en": "English", "hi": "Hindi", "bn": "Bengali", "ta": "Tamil", "te": "Telugu", "mr": "Marathi",
+                  "gu": "Gujarati", "kn": "Kannada", "ml": "Malayalam", "pa": "Punjabi", "ur": "Urdu",
+                  "or": "Odia", "as": "Assamese", "es": "Spanish", "fr": "French", "de": "German",
+                  "ar": "Arabic", "zh": "Chinese", "ja": "Japanese", "pt": "Portuguese", "ru": "Russian"}
+
+
+def check_languages(value):
+    """One BCP-47 tag, or a list of 1-3 for a mix (e.g. ["hi", "en"] for Hindi with English)."""
+    tags = value if isinstance(value, list) else [value]
+    if not 1 <= len(tags) <= 3:
+        raise TutorError("give 1 to 3 explain languages, primary first")
+    out = []
+    for tag in tags:
+        if not isinstance(tag, str) or not LANG.match(tag):
+            raise TutorError("explain_language must be BCP-47 tags such as 'en', 'hi' or 'es-MX' "
+                             "(a list for a mix, primary first: [\"hi\", \"en\"])")
+        if tag not in out:
+            out.append(tag)
+    return out
+
+
+def check_language_note(note):
+    if note is None or note == "":
+        return None
+    return check_text("language_note", note)
+
+
+def language_label(profile):
+    tags = profile.get("explain_languages") or [profile.get("explain_language", "en")]
+    names = " + ".join(f"{LANGUAGE_NAMES.get(t.split('-')[0], t)} ({t})" for t in tags)
+    note = profile.get("language_note")
+    return names + (f", {note}" if note else "") + (" mixed" if len(tags) > 1 and not note else "")
+
+
+def set_language(languages, note=None, root=None):
+    """The learner asked to be taught in another language, or a mix: remember it for every
+    session (and every device, through sync)."""
+    path = learner_dir(root) / "profile.json"
+    profile = read_json(path)
+    if profile is None:
+        raise TutorError("no learner/profile.json yet; run onboard first")
+    tags = check_languages(languages)
+    profile.update(explain_language=tags[0], explain_languages=tags, language_note=check_language_note(note))
+    write_json(path, profile)
+    return profile
+
+
 def mode_for(age_band):
     return "student" if age_band in STUDENT_BANDS else "adult"
 
 
 def onboard(answers, root=None):
     """Write learner/profile.json and learner/model.json from universal onboarding answers."""
-    known = {"name", "age_band", "level", "explain_language", "goals", "preferred_styles",
+    known = {"name", "age_band", "level", "explain_language", "language_note", "goals", "preferred_styles",
              "pace", "hours_per_day", "journey_stage"}
     unknown = set(answers) - known
     if unknown:
@@ -168,9 +215,9 @@ def onboard(answers, root=None):
     if "level" not in answers:
         raise TutorError("level is required")
     age_band = check_choice("age_band", answers["age_band"], AGE_BANDS)
-    language = answers.get("explain_language", "en")
-    if not isinstance(language, str) or not LANG.match(language):
-        raise TutorError("explain_language must be a BCP-47 tag such as 'en', 'hi' or 'es-MX'")
+    languages = check_languages(answers.get("explain_language", "en"))
+    language = languages[0]
+    note = check_language_note(answers.get("language_note"))
     name = answers.get("name")
     if name is not None:
         name = check_text("name", name)
@@ -181,7 +228,9 @@ def onboard(answers, root=None):
         "age_band": age_band,
         "mode": mode_for(age_band),
         "level": check_choice("level", answers["level"], LEVELS),
-        "explain_language": language,
+        "explain_language": language,        # primary language (records and lessons use this)
+        "explain_languages": languages,      # every language the learner asked for, primary first
+        "language_note": note,
         "hours_per_day": check_hours(answers.get("hours_per_day", 1)),
         "sharing": False,
         "sync": True,
@@ -1020,8 +1069,9 @@ def summary(root=None):
         return "No learner yet: run onboarding (core/teaching/onboarding.md)."
     model = read_json(learner_dir(root) / "model.json", {})
     lines = [f"Learner: {profile.get('name') or '(no name given)'} · {profile['age_band']} · "
-             f"{profile['mode']} mode · explain in {profile['explain_language']} · "
-             f"{profile['hours_per_day']:g} h/day"]
+             f"{profile['mode']} mode · {profile['hours_per_day']:g} h/day",
+             f"Teach in: {language_label(profile)}. This is the learner's choice: use it from the first "
+             "message of every session until they ask to change it."]
     if model:
         lines.append(f"Model: stage {model.get('journey_stage')}, pace {model.get('pace')}, "
                      f"styles {', '.join(model.get('preferred_styles', [])) or '-'}")
@@ -1108,6 +1158,9 @@ def main(argv=None):
     p.add_argument("module")
     sub.add_parser("install-sharing-packages", help="install them into .tutor/pylib (after the learner agrees)")
     sub.add_parser("show", help="summary for the start of a session")
+    p = sub.add_parser("language", help="remember the language(s) to teach in, primary first")
+    p.add_argument("languages", nargs="+")
+    p.add_argument("--note")
     args = parser.parse_args(argv)
 
     # Success prints nothing (the learner must only ever see a tutor). onboard and plan
@@ -1128,6 +1181,8 @@ def main(argv=None):
             add_private_term(args.term)
         elif args.cmd == "show":
             print(summary())
+        elif args.cmd == "language":
+            set_language(args.languages, args.note)
         elif args.cmd == "init":
             init_identity()
         elif args.cmd == "code":
