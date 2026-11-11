@@ -6,7 +6,7 @@ Anything not covered here: pick the simplest safe option and record it in
 `docs/DECISIONS.md` (date, decision, reason).
 
 Names used below: **Repo A** = this repository (public). **Repo B** = the private platform
-repository: `vikramwebgarh/Ai-Tutor` (Repo A) and `vikramwebgarh/Ai-Tutor-Platform` (Repo B).
+repository: `vikramwebgarh/Ai-Tutor` (Repo A) and `vikramyadav06/Ai-Tutor-Platform` (Repo B).
 
 ---
 
