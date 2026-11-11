@@ -43,9 +43,35 @@ accounts, keys and legal decisions. Tick them as you go.
 - [ ] Keep an offline backup of the private key (password manager). If it's lost, old data
       can't be read; if it leaks, follow "Key rotation" below.
 
+## Phase 3: connect Repo B and run the ingest
+
+Claude Code built Repo B in `/home/webgarh/Projects/Ai-Tutor-Platform` (it can't reach GitHub
+from here). In your own terminal:
+
+- [ ] Push it to the empty private repo (if GitHub made a README there, delete the repo's
+      content first or tell Claude Code):
+      ```
+      cd ~/Projects/Ai-Tutor-Platform
+      git remote add origin https://github.com/vikramyadav06/Ai-Tutor-Platform.git
+      git push -u origin main
+      ```
+- [ ] Repo B → Settings → Secrets and variables → Actions: `COLLECTOR_PRIVATE_KEY_K1` and
+      `ACCOUNT_HASH_KEY` (above). `GITHUB_TOKEN` is automatic.
+- [ ] Repo B → Settings → Actions → General: allow GitHub Actions to run.
+- [ ] First run: Actions → **Ingest** → Run workflow. With no shared data yet it commits only
+      `ingest/state.json` and `ingest/identities.json`; the log shows counts only.
+- [ ] Test before real learners: on a throwaway GitHub account, fork Repo A, set
+      `collector.enabled` to `true` **in that fork only**, do a short session, then run Ingest and
+      check the record appears (adult: a `learner/lrn-…` branch; student: `sessions/anonymous/`).
+
 ## Protect both repos (GitHub → Settings)
 
-- [ ] **Branches → Add branch ruleset for `main`** (both repos): require a pull request,
+- [ ] **Repo B `main`**: the hourly ingest commits to `main` and to `learner/*` branches with
+      the workflow's own token, so it can't go through pull requests. Add a ruleset for `main` that
+      **blocks force pushes and deletions only**; leave `learner/*` unprotected (ingest deletes
+      those branches when a learner asks). Repo B is private and only you can push to it.
+- [ ] **Branches → Add branch ruleset for `main`** (Repo A; and Repo B's code through pull
+      requests by habit): require a pull request,
       require 1 approval, **require review from Code Owners** (`.github/CODEOWNERS` makes you the
       owner of `tools/`, `.claude/`, `AGENTS.md`, `CLAUDE.md`, `project.json`,
       `requirements-*.txt`, `core/schemas/`, `docs/allowed_signers` and `.github/`), require
