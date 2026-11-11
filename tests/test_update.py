@@ -1,5 +1,5 @@
 """Phase 2.5: reviewed lessons and tutor updates arrive automatically from upstream main.
-An 'owner' repo pushes to a local bare repo standing in for vikramwebgarh/Ai-Tutor; a learner's
+An 'owner' repo pushes to a local bare repo standing in for vikramyadav06/Ai-Tutor; a learner's
 clone updates at session start."""
 import json
 import os

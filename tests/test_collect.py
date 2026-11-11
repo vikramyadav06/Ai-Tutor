@@ -183,7 +183,7 @@ def test_disabled_collector_builds_and_validates_but_writes_nothing(tutor_root, 
 def test_repo_project_json_keeps_collection_off():
     project = json.loads((REPO / "project.json").read_text())
     assert project["collector"]["enabled"] is False
-    assert project["upstream_repo"] == "vikramwebgarh/Ai-Tutor"
+    assert project["upstream_repo"] == "vikramyadav06/Ai-Tutor"
 
 
 def test_oversized_record_is_rejected(tutor_root, config):

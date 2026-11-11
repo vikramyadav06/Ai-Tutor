@@ -39,7 +39,7 @@ def test_codeowners_cover_what_runs_on_learners_machines():
     rules = {line.split()[0]: line.split()[1:] for line in text.splitlines() if line.strip() and not line.startswith("#")}
     for path in ("/tools/", "/.claude/", "/AGENTS.md", "/CLAUDE.md", "/project.json", "/requirements-*.txt",
                  "/core/schemas/", "/docs/allowed_signers", "/.github/"):
-        assert rules.get(path) == ["@vikramwebgarh"], path
+        assert rules.get(path) == ["@vikramyadav06"], path
 
 
 def test_allowed_signers_ships_and_holds_only_public_keys():

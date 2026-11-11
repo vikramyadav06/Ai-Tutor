@@ -5,15 +5,15 @@ accounts, keys and legal decisions. Tick them as you go.
 
 ## Before Phase 1 (10 minutes)
 
-- [ ] Create **Repo A** on GitHub, public, `vikramwebgarh/Ai-Tutor`. Push this `ai-tutor` folder to it:
+- [ ] Create **Repo A** on GitHub, public, `vikramyadav06/Ai-Tutor`. Push this `ai-tutor` folder to it:
       ```
       cd ai-tutor
       git init -b main && git add -A && git commit -m "Starting point"
-      git remote add origin https://github.com/vikramwebgarh/Ai-Tutor.git
+      git remote add origin https://github.com/vikramyadav06/Ai-Tutor.git
       git push -u origin main
       ```
 - [ ] Install the GitHub CLI and sign in: `gh auth login`
-- [x] Replace the `OWNER/...` placeholders with `vikramwebgarh/Ai-Tutor` and `vikramyadav06/Ai-Tutor-Platform` in `project.json`,
+- [x] Replace the `OWNER/...` placeholders with `vikramyadav06/Ai-Tutor` and `vikramyadav06/Ai-Tutor-Platform` in `project.json`,
       `docs/TECH_SPEC.md` and `tools/owner/generate_keys.py` with your real repo names
       (Claude Code can do this find-and-replace if you tell it the names)
 - [ ] Open the folder in Claude Code and paste **Prompt 1** from `KICKOFF_PROMPTS.md`
@@ -27,7 +27,6 @@ accounts, keys and legal decisions. Tick them as you go.
 ## During or after Phase 2: keys and Repo B
 
 - [x] Create **Repo B** on GitHub, **private**, `vikramyadav06/Ai-Tutor-Platform`
-      (it lives on a different account from Repo A; that's fine, see the token step below)
 - [ ] Generate the collector keys **yourself, in your own terminal** (not through Claude Code):
       ```
       pip install pynacl==1.5.0
@@ -114,8 +113,7 @@ Learners' tutors pick it up at their next session start. Notes:
 
 ## Before Phase 4: token for Repo B → Repo A pull requests
 
-- [ ] Signed in as **vikramwebgarh** (the account that owns Repo A), GitHub → Settings →
-      Developer settings → **Fine-grained tokens → Generate**:
+- [ ] GitHub → Settings → Developer settings → **Fine-grained tokens → Generate**:
       Repository access: only Repo A. Permissions: **Contents: Read and write**,
       **Pull requests: Read and write**, nothing else. Expiry: 90 days.
 - [ ] Store it in Repo B: `gh secret set REPO_A_PR_TOKEN --repo vikramyadav06/Ai-Tutor-Platform`

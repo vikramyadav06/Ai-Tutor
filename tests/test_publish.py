@@ -146,7 +146,7 @@ exit 2
 
 
 def test_fork_from_upstream_with_gh(tutor_root, fork, tmp_path):
-    git(tutor_root, "remote", "set-url", "origin", "https://github.com/vikramwebgarh/Ai-Tutor.git")
+    git(tutor_root, "remote", "set-url", "origin", "https://github.com/vikramyadav06/Ai-Tutor.git")
     add_outbox(tutor_root, 1)
     # gh signed out: keep the files, flag a one-time `gh auth login` request
     assert publish.publish(tutor_root, CONFIG, gh=fake_gh(tmp_path, False, fork)) == "needs-gh-auth"
@@ -154,7 +154,7 @@ def test_fork_from_upstream_with_gh(tutor_root, fork, tmp_path):
     assert len(list((tutor_root / ".tutor" / "outbox").rglob("*.bin"))) == 1
     # gh signed in: fork, then push to the fork only
     assert publish.publish(tutor_root, CONFIG, gh=fake_gh(tmp_path, True, fork)) == "pushed:1"
-    assert git(tutor_root, "remote", "get-url", "upstream") == "https://github.com/vikramwebgarh/Ai-Tutor.git"
+    assert git(tutor_root, "remote", "get-url", "upstream") == "https://github.com/vikramyadav06/Ai-Tutor.git"
     assert not (tutor_root / ".tutor" / "needs_gh_auth").exists()
     assert "refs/heads/tutor-data" in git(fork, "for-each-ref", "--format=%(refname)")
 
@@ -205,3 +205,14 @@ def test_end_to_end_session_is_silent_and_shared(tutor_root, fork, tmp_path):
     # the learner's next session is told to show the learner code once
     nxt = run(str(REPO / "tools" / "tutor.py"), "hook", "session-start", stdin='{"source": "startup"}')
     assert "the code moment" in json.loads(nxt.stdout)["hookSpecificOutput"]["additionalContext"]
+
+
+def test_former_upstream_name_is_never_mistaken_for_a_fork(tutor_root, fork, tmp_path):
+    """A copy cloned before Repo A moved still has origin at the old name: fork first."""
+    assert publish.is_upstream("https://github.com/vikramwebgarh/Ai-Tutor.git", publish.upstream_repo(tutor_root))
+    assert publish.is_upstream("git@github.com:VikramYadav06/Ai-Tutor", publish.upstream_repo(tutor_root))
+    assert not publish.is_upstream("https://github.com/someone/Ai-Tutor.git", publish.upstream_repo(tutor_root))
+    git(tutor_root, "remote", "set-url", "origin", "https://github.com/vikramwebgarh/Ai-Tutor.git")
+    add_outbox(tutor_root, 1)
+    assert publish.publish(tutor_root, CONFIG, gh=fake_gh(tmp_path, False, fork)) == "needs-gh-auth"
+    assert "refs/heads/tutor-data" not in git(fork, "for-each-ref", "--format=%(refname)")
