@@ -70,6 +70,10 @@ from here). In your own terminal:
       the workflow's own token, so it can't go through pull requests. Add a ruleset for `main` that
       **blocks force pushes and deletions only**; leave `learner/*` unprotected (ingest deletes
       those branches when a learner asks). Repo B is private and only you can push to it.
+      On a free personal account GitHub saves but **does not enforce** rulesets on private
+      repos (it needs GitHub Pro or a Team organization). Create it anyway; until then the
+      protection is that only you have write access, the ingest only fast-forwards `main`, and
+      Actions may run only GitHub-made actions pinned to a commit SHA.
 - [ ] **Branches → Add branch ruleset for `main`** (Repo A; and Repo B's code through pull
       requests by habit): require a pull request,
       require 1 approval, **require review from Code Owners** (`.github/CODEOWNERS` makes you the
