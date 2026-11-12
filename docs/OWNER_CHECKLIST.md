@@ -100,7 +100,7 @@ from here). In your own terminal:
 
 One-time setup, **yourself, in your own terminal** (not through an AI agent):
 
-- [ ] Create an SSH key used **only** for signing releases, with a passphrase:
+- [x] Create an SSH key used **only** for signing releases, with a passphrase:
       ```
       ssh-keygen -t ed25519 -C "ai-tutor releases" -f ~/.ssh/ai_tutor_release
       ```
@@ -110,12 +110,16 @@ One-time setup, **yourself, in your own terminal** (not through an AI agent):
       ```
       git config gpg.format ssh
       git config user.signingkey ~/.ssh/ai_tutor_release.pub
+      git config gpg.ssh.allowedSignersFile docs/allowed_signers
       ```
+      (the last line lets `git verify-tag` check your tags against the trusted keys)
 - [ ] Add the **public** key to `docs/allowed_signers` by pull request (one line):
       ```
       echo "vikram-release namespaces=\"git\" $(cut -d' ' -f1,2 ~/.ssh/ai_tutor_release.pub)" >> docs/allowed_signers
       ```
       Until this line is merged and a learner's copy has it, learners receive no updates.
+      Copies cloned **before** it was merged have no trusted key, so they never update by
+      themselves: those learners (and your own test copy) need a fresh clone once.
 - [ ] Optional: add the same public key to GitHub as a **signing key** (Settings → SSH and GPG
       keys → New SSH key → type "Signing key"), so GitHub shows releases as Verified.
 
