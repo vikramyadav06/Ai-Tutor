@@ -83,8 +83,12 @@ from here). In your own terminal:
       GitHub never lets an author approve their own pull request, so as the only code owner
       either add yourself to the ruleset's **bypass list, for pull requests only** (never "always"),
       or have a second trusted maintainer review your changes.
-- [ ] **Tags → Add tag ruleset for `v*`** (Repo A): restrict creations, updates and deletions to
-      you, so only you can publish a release. Learners update only to signed `v*` tags.
+- [x] **Tags → Add tag ruleset for `v*`** (Repo A): **restrict updates and deletions** and
+      **block force pushes**, so a published release can never be moved or removed. Don't
+      restrict creations: on a personal account GitHub rejected the owner's own tag push even
+      with "Repository admin: Always allow" in the bypass list. Only you have write access, so
+      only you can create tags anyway, and learners accept only tags signed by
+      `docs/allowed_signers`.
 - [ ] **Actions → General**: "Read repository contents permission" as the default;
       "Require approval for all outside collaborators" for fork pull requests (Repo A)
 - [ ] **Code security**: turn on Dependabot alerts and Dependabot version updates for Actions
