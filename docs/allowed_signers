@@ -14,3 +14,4 @@
 #
 # Owner: add your release key's public line here by pull request (docs/OWNER_CHECKLIST.md,
 # "Releases and signing").
+vikram-release namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGn0CYFKV6eUnrWgRwMkC4GNCteMmL1g+gcTEpgjyHNP

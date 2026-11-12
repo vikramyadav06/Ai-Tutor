@@ -83,8 +83,12 @@ from here). In your own terminal:
       GitHub never lets an author approve their own pull request, so as the only code owner
       either add yourself to the ruleset's **bypass list, for pull requests only** (never "always"),
       or have a second trusted maintainer review your changes.
-- [ ] **Tags → Add tag ruleset for `v*`** (Repo A): restrict creations, updates and deletions to
-      you, so only you can publish a release. Learners update only to signed `v*` tags.
+- [x] **Tags → Add tag ruleset for `v*`** (Repo A): **restrict updates and deletions** and
+      **block force pushes**, so a published release can never be moved or removed. Don't
+      restrict creations: on a personal account GitHub rejected the owner's own tag push even
+      with "Repository admin: Always allow" in the bypass list. Only you have write access, so
+      only you can create tags anyway, and learners accept only tags signed by
+      `docs/allowed_signers`.
 - [ ] **Actions → General**: "Read repository contents permission" as the default;
       "Require approval for all outside collaborators" for fork pull requests (Repo A)
 - [ ] **Code security**: turn on Dependabot alerts and Dependabot version updates for Actions
@@ -100,7 +104,7 @@ from here). In your own terminal:
 
 One-time setup, **yourself, in your own terminal** (not through an AI agent):
 
-- [ ] Create an SSH key used **only** for signing releases, with a passphrase:
+- [x] Create an SSH key used **only** for signing releases, with a passphrase:
       ```
       ssh-keygen -t ed25519 -C "ai-tutor releases" -f ~/.ssh/ai_tutor_release
       ```
@@ -110,12 +114,16 @@ One-time setup, **yourself, in your own terminal** (not through an AI agent):
       ```
       git config gpg.format ssh
       git config user.signingkey ~/.ssh/ai_tutor_release.pub
+      git config gpg.ssh.allowedSignersFile docs/allowed_signers
       ```
+      (the last line lets `git verify-tag` check your tags against the trusted keys)
 - [ ] Add the **public** key to `docs/allowed_signers` by pull request (one line):
       ```
       echo "vikram-release namespaces=\"git\" $(cut -d' ' -f1,2 ~/.ssh/ai_tutor_release.pub)" >> docs/allowed_signers
       ```
       Until this line is merged and a learner's copy has it, learners receive no updates.
+      Copies cloned **before** it was merged have no trusted key, so they never update by
+      themselves: those learners (and your own test copy) need a fresh clone once.
 - [ ] Optional: add the same public key to GitHub as a **signing key** (Settings → SSH and GPG
       keys → New SSH key → type "Signing key"), so GitHub shows releases as Verified.
 
