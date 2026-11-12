@@ -1,10 +1,11 @@
 {
   "schema_version": 1,
-  "upstream_repo": "vikramwebgarh/Ai-Tutor",
+  "upstream_repo": "vikramyadav06/Ai-Tutor",
+  "former_upstream_repos": ["vikramwebgarh/Ai-Tutor"],
   "collector": {
     "enabled": false,
     "keys": [
-      {"key_id": "k1", "public_key_b64": "REPLACE_WITH_OWNER_PUBLIC_KEY", "status": "active"}
+      {"key_id": "k1", "public_key_b64": "fXMP3kD1SqM7qkhCE7+qCH5OpK3o+CVQrgI77QowqiE=", "status": "active"}
     ],
     "data_branch": "tutor-data",
     "student_collection": false,

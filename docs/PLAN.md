@@ -219,9 +219,9 @@ Done when: two simulated devices (A, B, A) lose no data, a wrong code fails safe
 
 ### Phase 3 – Ingest (Repo B)
 
-- [ ] Scheduled workflow: discover forks, fetch, size and rate checks, decrypt, validate, scrub again, verify signatures
-- [ ] File to `learner/<id>`, `sessions/anonymous/`, `lessons/inbox/` or `quarantine/`
-- [ ] Identity merging and `identities.json`; deletion by learner code
+- [x] Scheduled workflow: discover forks, fetch, size and rate checks, decrypt, validate, scrub again, verify signatures
+- [x] File to `learner/<id>`, `sessions/anonymous/`, `lessons/inbox/` or `quarantine/`
+- [x] Identity merging and `identities.json`; deletion by learner code
 - [ ] Branch protection and pinned actions in both repos
 
 Done when: test forks with good, bad and malicious uploads are each filed or quarantined correctly.

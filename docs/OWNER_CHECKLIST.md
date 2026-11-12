@@ -5,15 +5,15 @@ accounts, keys and legal decisions. Tick them as you go.
 
 ## Before Phase 1 (10 minutes)
 
-- [ ] Create **Repo A** on GitHub, public, `vikramwebgarh/Ai-Tutor`. Push this `ai-tutor` folder to it:
+- [ ] Create **Repo A** on GitHub, public, `vikramyadav06/Ai-Tutor`. Push this `ai-tutor` folder to it:
       ```
       cd ai-tutor
       git init -b main && git add -A && git commit -m "Starting point"
-      git remote add origin https://github.com/vikramwebgarh/Ai-Tutor.git
+      git remote add origin https://github.com/vikramyadav06/Ai-Tutor.git
       git push -u origin main
       ```
 - [ ] Install the GitHub CLI and sign in: `gh auth login`
-- [x] Replace the `OWNER/...` placeholders with `vikramwebgarh/Ai-Tutor` and `vikramwebgarh/Ai-Tutor-Platform` in `project.json`,
+- [x] Replace the `OWNER/...` placeholders with `vikramyadav06/Ai-Tutor` and `vikramyadav06/Ai-Tutor-Platform` in `project.json`,
       `docs/TECH_SPEC.md` and `tools/owner/generate_keys.py` with your real repo names
       (Claude Code can do this find-and-replace if you tell it the names)
 - [ ] Open the folder in Claude Code and paste **Prompt 1** from `KICKOFF_PROMPTS.md`
@@ -26,7 +26,7 @@ accounts, keys and legal decisions. Tick them as you go.
 
 ## During or after Phase 2: keys and Repo B
 
-- [ ] Create **Repo B** on GitHub, **private**, `vikramwebgarh/Ai-Tutor-Platform`
+- [x] Create **Repo B** on GitHub, **private**, `vikramyadav06/Ai-Tutor-Platform`
 - [ ] Generate the collector keys **yourself, in your own terminal** (not through Claude Code):
       ```
       pip install pynacl==1.5.0
@@ -34,18 +34,48 @@ accounts, keys and legal decisions. Tick them as you go.
       ```
 - [ ] Store the two secrets in Repo B, then delete the files:
       ```
-      gh secret set COLLECTOR_PRIVATE_KEY_K1 --repo vikramwebgarh/Ai-Tutor-Platform < collector_private_k1.txt
-      gh secret set ACCOUNT_HASH_KEY        --repo vikramwebgarh/Ai-Tutor-Platform < account_hash_key.txt
+      gh secret set COLLECTOR_PRIVATE_KEY_K1 --repo vikramyadav06/Ai-Tutor-Platform < collector_private_k1.txt
+      gh secret set ACCOUNT_HASH_KEY        --repo vikramyadav06/Ai-Tutor-Platform < account_hash_key.txt
       rm collector_private_k1.txt account_hash_key.txt
       ```
-- [ ] Put the printed **public** key into `project.json` → `collector.keys[0].public_key_b64`
+- [x] Put the printed **public** key into `project.json` → `collector.keys[0].public_key_b64`
       (public keys are safe to share; tell Claude Code the value or edit it yourself)
 - [ ] Keep an offline backup of the private key (password manager). If it's lost, old data
       can't be read; if it leaks, follow "Key rotation" below.
 
+## Phase 3: connect Repo B and run the ingest
+
+Claude Code built Repo B in `/home/webgarh/Projects/Ai-Tutor-Platform` (it can't reach GitHub
+from here). In your own terminal:
+
+- [ ] Push it to the empty private repo (if GitHub made a README there, delete the repo's
+      content first or tell Claude Code):
+      ```
+      cd ~/Projects/Ai-Tutor-Platform
+      git remote add origin https://github.com/vikramyadav06/Ai-Tutor-Platform.git
+      git push -u origin main
+      ```
+- [ ] Repo B → Settings → Secrets and variables → Actions: `COLLECTOR_PRIVATE_KEY_K1` and
+      `ACCOUNT_HASH_KEY` (above). `GITHUB_TOKEN` is automatic.
+- [ ] Repo B → Settings → Actions → General: allow GitHub Actions to run.
+- [ ] First run: Actions → **Ingest** → Run workflow. With no shared data yet it commits only
+      `ingest/state.json` and `ingest/identities.json`; the log shows counts only.
+- [ ] Test before real learners: on a throwaway GitHub account, fork Repo A, set
+      `collector.enabled` to `true` **in that fork only**, do a short session, then run Ingest and
+      check the record appears (adult: a `learner/lrn-…` branch; student: `sessions/anonymous/`).
+
 ## Protect both repos (GitHub → Settings)
 
-- [ ] **Branches → Add branch ruleset for `main`** (both repos): require a pull request,
+- [ ] **Repo B `main`**: the hourly ingest commits to `main` and to `learner/*` branches with
+      the workflow's own token, so it can't go through pull requests. Add a ruleset for `main` that
+      **blocks force pushes and deletions only**; leave `learner/*` unprotected (ingest deletes
+      those branches when a learner asks). Repo B is private and only you can push to it.
+      On a free personal account GitHub saves but **does not enforce** rulesets on private
+      repos (it needs GitHub Pro or a Team organization). Create it anyway; until then the
+      protection is that only you have write access, the ingest only fast-forwards `main`, and
+      Actions may run only GitHub-made actions pinned to a commit SHA.
+- [ ] **Branches → Add branch ruleset for `main`** (Repo A; and Repo B's code through pull
+      requests by habit): require a pull request,
       require 1 approval, **require review from Code Owners** (`.github/CODEOWNERS` makes you the
       owner of `tools/`, `.claude/`, `AGENTS.md`, `CLAUDE.md`, `project.json`,
       `requirements-*.txt`, `core/schemas/`, `docs/allowed_signers` and `.github/`), require
@@ -116,7 +146,7 @@ Learners' tutors pick it up at their next session start. Notes:
 - [ ] GitHub → Settings → Developer settings → **Fine-grained tokens → Generate**:
       Repository access: only Repo A. Permissions: **Contents: Read and write**,
       **Pull requests: Read and write**, nothing else. Expiry: 90 days.
-- [ ] Store it in Repo B: `gh secret set REPO_A_PR_TOKEN --repo vikramwebgarh/Ai-Tutor-Platform`
+- [ ] Store it in Repo B: `gh secret set REPO_A_PR_TOKEN --repo vikramyadav06/Ai-Tutor-Platform`
 - [ ] Calendar reminder to renew it before it expires
 
 ## Before switching on collection (`collector.enabled: true`)

@@ -66,10 +66,12 @@ def outbox_files(root):
 
 
 def is_upstream(url, upstream_repo):
+    """True if url is the upstream repo, or one of its former names (a str or a list)."""
     url = (url or "").strip().lower().rstrip("/")
     url = url[:-4] if url.endswith(".git") else url
-    repo = upstream_repo.lower()
-    return url.endswith("github.com/" + repo) or url.endswith("github.com:" + repo)
+    repos = [upstream_repo] if isinstance(upstream_repo, str) else list(upstream_repo)
+    return any(url.endswith("github.com/" + r.lower()) or url.endswith("github.com:" + r.lower())
+               for r in repos)
 
 
 def ensure_fork(root, upstream_repo, gh=None):
@@ -159,7 +161,10 @@ def push_orphan(root, files, branch, name, path_re, message, day=None):
 
 
 def upstream_repo(root):
-    return json.loads((Path(root) / "project.json").read_text(encoding="utf-8"))["upstream_repo"]
+    """The upstream repo and its former names: a clone made before a rename or transfer still
+    points origin at an old name, and must never be mistaken for the learner's own fork."""
+    project = json.loads((Path(root) / "project.json").read_text(encoding="utf-8"))
+    return [project["upstream_repo"], *project.get("former_upstream_repos", [])]
 
 
 def publish(root=None, config=None, gh=None, day=None):
