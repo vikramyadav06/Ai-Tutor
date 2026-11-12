@@ -12,3 +12,7 @@ test-results/
 allure-results/
 .env
 .claude/settings.local.json
+
+# Owner key files from tools/owner/generate_keys.py: never commit
+collector_private_*.txt
+account_hash_key.txt

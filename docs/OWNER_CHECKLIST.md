@@ -38,7 +38,7 @@ accounts, keys and legal decisions. Tick them as you go.
       gh secret set ACCOUNT_HASH_KEY        --repo vikramyadav06/Ai-Tutor-Platform < account_hash_key.txt
       rm collector_private_k1.txt account_hash_key.txt
       ```
-- [ ] Put the printed **public** key into `project.json` → `collector.keys[0].public_key_b64`
+- [x] Put the printed **public** key into `project.json` → `collector.keys[0].public_key_b64`
       (public keys are safe to share; tell Claude Code the value or edit it yourself)
 - [ ] Keep an offline backup of the private key (password manager). If it's lost, old data
       can't be read; if it leaks, follow "Key rotation" below.
